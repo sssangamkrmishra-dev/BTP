@@ -1,0 +1,262 @@
+[
+  {
+    "drone_id": "DRN-001",
+    "ingest_id": "ingest_9f1a2b3c4d",
+    "I_base": 10.0,
+    "I_prime": 11.5,
+    "DSR_prime": {
+      "signature": 0.7,
+      "ml": 0.85,
+      "sandbox": 0.95
+    },
+    "U_a": [
+      [
+        1.45,
+        3.45
+      ],
+      [
+        -0.275,
+        1.725
+      ],
+      [
+        -1.425,
+        0.575
+      ]
+    ],
+    "U_d": [
+      [
+        7.05,
+        -1.0
+      ],
+      [
+        6.775,
+        -3.0
+      ],
+      [
+        4.925,
+        -6.0
+      ]
+    ],
+    "equilibrium": {
+      "defender_index": 0,
+      "attacker_index": 1,
+      "defender_strategy": "signature",
+      "attacker_action": "no_inject",
+      "U_d_eq": -1.0,
+      "U_a_eq": 3.45
+    },
+    "threat": {
+      "raw": 4.45,
+      "T_raw": 0.972348,
+      "T_S": 0.875113,
+      "inspection_level": "High"
+    },
+    "params": {
+      "alpha": 0.5,
+      "beta": 0.3,
+      "gamma": 0.2,
+      "delta": 0.0,
+      "kappa": 0.8,
+      "lambda_blend": 0.9
+    },
+    "estimator_metadata": {
+      "model_version": "v1.0-step5",
+      "timestamp": "2025-10-13T17:43:02.578793Z"
+    }
+  },
+  {
+    "drone_id": "DRN-002",
+    "ingest_id": "ingest_c7d6e5f4a3",
+    "I_base": 10.0,
+    "I_prime": 12.075,
+    "DSR_prime": {
+      "signature": 0.7,
+      "ml": 0.85,
+      "sandbox": 0.95
+    },
+    "U_a": [
+      [
+        1.6225,
+        3.6225
+      ],
+      [
+        -0.18875,
+        1.81125
+      ],
+      [
+        -1.39625,
+        0.60375
+      ]
+    ],
+    "U_d": [
+      [
+        7.4525,
+        -1.0
+      ],
+      [
+        7.26375,
+        -3.0
+      ],
+      [
+        5.47125,
+        -6.0
+      ]
+    ],
+    "equilibrium": {
+      "defender_index": 0,
+      "attacker_index": 1,
+      "defender_strategy": "signature",
+      "attacker_action": "no_inject",
+      "U_d_eq": -1.0,
+      "U_a_eq": 3.6225
+    },
+    "threat": {
+      "raw": 4.6225,
+      "T_raw": 0.975826,
+      "T_S": 0.888243,
+      "inspection_level": "High"
+    },
+    "params": {
+      "alpha": 0.5,
+      "beta": 0.3,
+      "gamma": 0.2,
+      "delta": 0.0,
+      "kappa": 0.8,
+      "lambda_blend": 0.9
+    },
+    "estimator_metadata": {
+      "model_version": "v1.0-step5",
+      "timestamp": "2025-10-13T17:43:02.578865Z"
+    }
+  },
+  {
+    "drone_id": "DRN-003",
+    "ingest_id": "ingest_e8f7g6h5i4",
+    "I_base": 3.3045,
+    "I_prime": 3.800175,
+    "DSR_prime": {
+      "signature": 0.7,
+      "ml": 0.85,
+      "sandbox": 0.95
+    },
+    "U_a": [
+      [
+        -0.859947,
+        1.140053
+      ],
+      [
+        -1.429974,
+        0.570026
+      ],
+      [
+        -1.809991,
+        0.190009
+      ]
+    ],
+    "U_d": [
+      [
+        1.660122,
+        -1.0
+      ],
+      [
+        0.230149,
+        -3.0
+      ],
+      [
+        -2.389834,
+        -6.0
+      ]
+    ],
+    "equilibrium": {
+      "defender_index": 0,
+      "attacker_index": 1,
+      "defender_strategy": "signature",
+      "attacker_action": "no_inject",
+      "U_d_eq": -1.0,
+      "U_a_eq": 1.140053
+    },
+    "threat": {
+      "raw": 2.140053,
+      "T_raw": 0.847101,
+      "T_S": 0.762391,
+      "inspection_level": "High"
+    },
+    "params": {
+      "alpha": 0.5,
+      "beta": 0.3,
+      "gamma": 0.2,
+      "delta": 0.0,
+      "kappa": 0.8,
+      "lambda_blend": 0.9
+    },
+    "estimator_metadata": {
+      "model_version": "v1.0-step5",
+      "timestamp": "2025-10-13T17:43:02.578918Z"
+    }
+  },
+  {
+    "drone_id": "DRN-004",
+    "ingest_id": "ingest_f1e2d3c4b5",
+    "I_base": 10.0,
+    "I_prime": 11.5,
+    "DSR_prime": {
+      "signature": 0.7,
+      "ml": 0.85,
+      "sandbox": 0.95
+    },
+    "U_a": [
+      [
+        1.45,
+        3.45
+      ],
+      [
+        -0.275,
+        1.725
+      ],
+      [
+        -1.425,
+        0.575
+      ]
+    ],
+    "U_d": [
+      [
+        7.05,
+        -1.0
+      ],
+      [
+        6.775,
+        -3.0
+      ],
+      [
+        4.925,
+        -6.0
+      ]
+    ],
+    "equilibrium": {
+      "defender_index": 0,
+      "attacker_index": 1,
+      "defender_strategy": "signature",
+      "attacker_action": "no_inject",
+      "U_d_eq": -1.0,
+      "U_a_eq": 3.45
+    },
+    "threat": {
+      "raw": 4.45,
+      "T_raw": 0.972348,
+      "T_S": 0.875113,
+      "inspection_level": "High"
+    },
+    "params": {
+      "alpha": 0.5,
+      "beta": 0.3,
+      "gamma": 0.2,
+      "delta": 0.0,
+      "kappa": 0.8,
+      "lambda_blend": 0.9
+    },
+    "estimator_metadata": {
+      "model_version": "v1.0-step5",
+      "timestamp": "2025-10-13T17:43:02.579323Z"
+    }
+  }
+]
