@@ -1,0 +1,180 @@
+{
+  "A": {
+    "ingest_metadata": {
+      "ingest_id": "ingest_41299bae41",
+      "drone_id": "DRN-001",
+      "timestamp": "2025-10-13T03:00:12Z",
+      "mission_id": "MSN-142",
+      "mission_zone": "zone-a",
+      "geo": {
+        "lat": 12.971598,
+        "lon": 77.594566,
+        "alt": 120
+      },
+      "operator_id": "OP-12",
+      "firmware_version": "v1.2.0",
+      "num_files": 2,
+      "insecure_flags": [],
+      "auth_result": "ok",
+      "notes": "normal feed",
+      "reputation": 0.9,
+      "zone_risk": 0.6
+    },
+    "artifact_records": [
+      {
+        "artifact_id": "artifact://caf3d96b3db6",
+        "filename": "drn001_fpv_001.mp4",
+        "type": "video",
+        "mime": "video/mp4",
+        "size_bytes": 4500000,
+        "encryption": false,
+        "container": false,
+        "thumbnail": "thumb://345bd3e309",
+        "pointer_storage": "s3://forensics/artifacts/cbb48e62bfcc"
+      },
+      {
+        "artifact_id": "artifact://94b8d0e25f3b",
+        "filename": "drn001_cam_001.jpg",
+        "type": "image",
+        "mime": "image/jpeg",
+        "size_bytes": 320000,
+        "encryption": false,
+        "container": false,
+        "thumbnail": "thumb://b32d682d6a",
+        "pointer_storage": "s3://forensics/artifacts/fee037d3e739"
+      }
+    ]
+  },
+  "B": {
+    "ingest_metadata": {
+      "ingest_id": "ingest_d71cedfa5e",
+      "drone_id": "DRN-002",
+      "timestamp": "2025-10-13T03:05:45Z",
+      "mission_id": "MSN-143",
+      "mission_zone": "zone-c",
+      "geo": {
+        "lat": 13.035542,
+        "lon": 77.5971,
+        "alt": 85
+      },
+      "operator_id": "OP-23",
+      "firmware_version": "v1.1.9",
+      "num_files": 2,
+      "insecure_flags": [
+        "encrypted_payload",
+        "nested_archive"
+      ],
+      "auth_result": "unknown",
+      "notes": "defer analysis: encrypted or nested contents",
+      "reputation": 0.4,
+      "zone_risk": 0.8
+    },
+    "artifact_records": [
+      {
+        "artifact_id": "artifact://b2c380edbfe9",
+        "filename": "payload_bundle.zip",
+        "type": "archive",
+        "mime": "application/zip",
+        "size_bytes": 4200000,
+        "encryption": true,
+        "container": true,
+        "thumbnail": null,
+        "pointer_storage": "s3://forensics/artifacts/391959571929"
+      },
+      {
+        "artifact_id": "artifact://424b0f7cdcf6",
+        "filename": "notes.txt",
+        "type": "text",
+        "mime": "text/plain",
+        "size_bytes": 2048,
+        "encryption": false,
+        "container": false,
+        "thumbnail": null,
+        "pointer_storage": "s3://forensics/artifacts/4f6ffc1c9e58"
+      }
+    ]
+  },
+  "C": {
+    "ingest_metadata": {
+      "ingest_id": "ingest_d451a7938b",
+      "drone_id": "DRN-003",
+      "timestamp": "2025-10-13T03:10:03Z",
+      "mission_id": "MSN-144",
+      "mission_zone": "zone-b",
+      "geo": {
+        "lat": 12.9678,
+        "lon": 77.6012,
+        "alt": 35
+      },
+      "operator_id": "OP-33",
+      "firmware_version": "v1.2.3",
+      "num_files": 1,
+      "insecure_flags": [],
+      "auth_result": "ok",
+      "notes": "normal feed",
+      "reputation": 0.95,
+      "zone_risk": 0.2
+    },
+    "artifact_records": [
+      {
+        "artifact_id": "artifact://d5596f4e4f5a",
+        "filename": "telemetry_snapshot.json",
+        "type": "telemetry",
+        "mime": "application/json",
+        "size_bytes": 1500,
+        "encryption": false,
+        "container": false,
+        "thumbnail": null,
+        "pointer_storage": "s3://forensics/artifacts/e60d209ea17e"
+      }
+    ]
+  },
+  "D": {
+    "ingest_metadata": {
+      "ingest_id": "ingest_28f64ec155",
+      "drone_id": "DRN-004",
+      "timestamp": "2025-10-13T03:15:22Z",
+      "mission_id": "MSN-145",
+      "mission_zone": "zone-a",
+      "geo": {
+        "lat": 12.975,
+        "lon": 77.59,
+        "alt": 200
+      },
+      "operator_id": "OP-05",
+      "firmware_version": "v2.0.0",
+      "num_files": 2,
+      "insecure_flags": [
+        "large_binary"
+      ],
+      "auth_result": "ok",
+      "notes": "large binary - consider selective sampling/sandboxing",
+      "reputation": 0.85,
+      "zone_risk": 0.6
+    },
+    "artifact_records": [
+      {
+        "artifact_id": "artifact://c6f35935434f",
+        "filename": "survey_coverage_long.mp4",
+        "type": "video",
+        "mime": "video/mp4",
+        "size_bytes": 12500000,
+        "encryption": false,
+        "container": false,
+        "thumbnail": "thumb://c0a4c22616",
+        "pointer_storage": "s3://forensics/artifacts/cf17a1cbd5e6"
+      },
+      {
+        "artifact_id": "artifact://c402196f685b",
+        "filename": "survey_frame_2345.jpg",
+        "type": "image",
+        "mime": "image/jpeg",
+        "size_bytes": 550000,
+        "encryption": false,
+        "container": false,
+        "thumbnail": "thumb://56f43602b3",
+        "pointer_storage": "s3://forensics/artifacts/b66de934aa0a"
+      }
+    ]
+  }
+}
