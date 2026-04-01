@@ -1,0 +1,344 @@
+{
+  "A": {
+    "ingest_metadata": {
+      "ingest_id": "ingest_217eb89364ff",
+      "drone_id": "DRN-001",
+      "timestamp": "2025-10-13T03:00:12Z",
+      "received_at": "2026-03-31T19:47:13.081898+00:00",
+      "mission_id": "MSN-142",
+      "mission_zone": "zone-a",
+      "geo": {
+        "lat": 12.971598,
+        "lon": 77.594566,
+        "alt": 120.0
+      },
+      "operator_id": "OP-12",
+      "firmware_version": "v1.2.0",
+      "num_files": 2,
+      "total_size_bytes": 4820000,
+      "insecure_flags": [],
+      "auth_result": "authenticated",
+      "notes": "normal feed",
+      "auth_details": {
+        "status": "authenticated",
+        "drone_id": "DRN-001",
+        "trusted": true,
+        "reputation": 0.9,
+        "details": {
+          "registry_trusted": true,
+          "signature_check": null,
+          "firmware_whitelist": null
+        }
+      },
+      "reputation": 0.9,
+      "zone_risk": 0.6,
+      "additional_metadata": {
+        "camera_model": "CAM-X1000",
+        "frame_rate": 30
+      }
+    },
+    "artifact_records": [
+      {
+        "artifact_id": "artifact://eac90744e67146d9",
+        "filename": "drn001_fpv_001.mp4",
+        "type": "video",
+        "mime": "video/mp4",
+        "size_bytes": 4500000,
+        "encryption": false,
+        "container": false,
+        "security_flags": [],
+        "checksum_verified": null,
+        "thumbnail": "thumb://785fbd333efc",
+        "pointer_storage": "s3://forensics/artifacts/DRN-001//ba7a022e_drn001_fpv_001.mp4"
+      },
+      {
+        "artifact_id": "artifact://9265b47644904ba9",
+        "filename": "drn001_cam_001.jpg",
+        "type": "image",
+        "mime": "image/jpeg",
+        "size_bytes": 320000,
+        "encryption": false,
+        "container": false,
+        "security_flags": [],
+        "checksum_verified": null,
+        "thumbnail": "thumb://7b60f16c06d9",
+        "pointer_storage": "s3://forensics/artifacts/DRN-001//8227630f_drn001_cam_001.jpg"
+      }
+    ],
+    "warnings": []
+  },
+  "B": {
+    "ingest_metadata": {
+      "ingest_id": "ingest_c27919518222",
+      "drone_id": "DRN-002",
+      "timestamp": "2025-10-13T03:05:45Z",
+      "received_at": "2026-03-31T19:47:13.082184+00:00",
+      "mission_id": "MSN-143",
+      "mission_zone": "zone-c",
+      "geo": {
+        "lat": 13.035542,
+        "lon": 77.5971,
+        "alt": 85.0
+      },
+      "operator_id": "OP-23",
+      "firmware_version": "v1.1.9",
+      "num_files": 2,
+      "total_size_bytes": 4202048,
+      "insecure_flags": [
+        "encrypted_payload",
+        "nested_archive"
+      ],
+      "auth_result": "untrusted",
+      "notes": "device untrusted; defer analysis: encrypted or nested contents",
+      "auth_details": {
+        "status": "untrusted",
+        "drone_id": "DRN-002",
+        "trusted": false,
+        "reputation": 0.4,
+        "details": {
+          "registry_trusted": false,
+          "signature_check": {
+            "valid": false,
+            "reason": "no_key_for_device"
+          },
+          "firmware_whitelist": null
+        }
+      },
+      "reputation": 0.4,
+      "zone_risk": 0.8,
+      "additional_metadata": {
+        "mission_priority": "high",
+        "notes": "compressed mission dataset"
+      }
+    },
+    "artifact_records": [
+      {
+        "artifact_id": "artifact://d3fe560dc65d49ae",
+        "filename": "payload_bundle.zip",
+        "type": "archive",
+        "mime": "application/zip",
+        "size_bytes": 4200000,
+        "encryption": true,
+        "container": true,
+        "security_flags": [
+          "encrypted_payload",
+          "nested_archive"
+        ],
+        "checksum_verified": null,
+        "thumbnail": null,
+        "pointer_storage": "s3://forensics/artifacts/DRN-002//6261f6a1_payload_bundle.zip"
+      },
+      {
+        "artifact_id": "artifact://3e8ab82f0e38421a",
+        "filename": "notes.txt",
+        "type": "text",
+        "mime": "text/plain",
+        "size_bytes": 2048,
+        "encryption": false,
+        "container": false,
+        "security_flags": [],
+        "checksum_verified": null,
+        "thumbnail": null,
+        "pointer_storage": "s3://forensics/artifacts/DRN-002//43093eac_notes.txt"
+      }
+    ],
+    "warnings": []
+  },
+  "C": {
+    "ingest_metadata": {
+      "ingest_id": "ingest_a9e86e990a85",
+      "drone_id": "DRN-003",
+      "timestamp": "2025-10-13T03:10:03Z",
+      "received_at": "2026-03-31T19:47:13.082370+00:00",
+      "mission_id": "MSN-144",
+      "mission_zone": "zone-b",
+      "geo": {
+        "lat": 12.9678,
+        "lon": 77.6012,
+        "alt": 35.0
+      },
+      "operator_id": "OP-33",
+      "firmware_version": "v1.2.3",
+      "num_files": 1,
+      "total_size_bytes": 1500,
+      "insecure_flags": [],
+      "auth_result": "authenticated",
+      "notes": "normal feed",
+      "auth_details": {
+        "status": "authenticated",
+        "drone_id": "DRN-003",
+        "trusted": true,
+        "reputation": 0.95,
+        "details": {
+          "registry_trusted": true,
+          "signature_check": null,
+          "firmware_whitelist": null
+        }
+      },
+      "reputation": 0.95,
+      "zone_risk": 0.2,
+      "additional_metadata": {
+        "note": "routine patrol",
+        "weather": "clear"
+      }
+    },
+    "artifact_records": [
+      {
+        "artifact_id": "artifact://efa9f878616d4155",
+        "filename": "telemetry_snapshot.json",
+        "type": "telemetry",
+        "mime": "application/json",
+        "size_bytes": 1500,
+        "encryption": false,
+        "container": false,
+        "security_flags": [],
+        "checksum_verified": null,
+        "thumbnail": null,
+        "pointer_storage": "s3://forensics/artifacts/DRN-003//596fc871_telemetry_snapshot.json"
+      }
+    ],
+    "warnings": []
+  },
+  "D": {
+    "ingest_metadata": {
+      "ingest_id": "ingest_8808b5ab4ab6",
+      "drone_id": "DRN-004",
+      "timestamp": "2025-10-13T03:15:22Z",
+      "received_at": "2026-03-31T19:47:13.082466+00:00",
+      "mission_id": "MSN-145",
+      "mission_zone": "zone-a",
+      "geo": {
+        "lat": 12.975,
+        "lon": 77.59,
+        "alt": 200.0
+      },
+      "operator_id": "OP-05",
+      "firmware_version": "v2.0.0",
+      "num_files": 2,
+      "total_size_bytes": 13050000,
+      "insecure_flags": [
+        "large_binary"
+      ],
+      "auth_result": "untrusted",
+      "notes": "device untrusted; large binary - consider selective sampling",
+      "auth_details": {
+        "status": "untrusted",
+        "drone_id": "DRN-004",
+        "trusted": false,
+        "reputation": 0.85,
+        "details": {
+          "registry_trusted": true,
+          "signature_check": {
+            "valid": false,
+            "reason": "unsupported_scheme:ed25519"
+          },
+          "firmware_whitelist": null
+        }
+      },
+      "reputation": 0.85,
+      "zone_risk": 0.6,
+      "additional_metadata": {
+        "camera_model": "CAM-PRO-4k",
+        "mission_sensitivity": "critical"
+      }
+    },
+    "artifact_records": [
+      {
+        "artifact_id": "artifact://09fabf639a444e3c",
+        "filename": "survey_coverage_long.mp4",
+        "type": "video",
+        "mime": "video/mp4",
+        "size_bytes": 12500000,
+        "encryption": false,
+        "container": false,
+        "security_flags": [
+          "large_binary"
+        ],
+        "checksum_verified": null,
+        "thumbnail": "thumb://8ea124d5d5ad",
+        "pointer_storage": "s3://forensics/artifacts/DRN-004//cedf231e_survey_coverage_long.mp4"
+      },
+      {
+        "artifact_id": "artifact://d43cf46f2ab2416f",
+        "filename": "survey_frame_2345.jpg",
+        "type": "image",
+        "mime": "image/jpeg",
+        "size_bytes": 550000,
+        "encryption": false,
+        "container": false,
+        "security_flags": [],
+        "checksum_verified": null,
+        "thumbnail": "thumb://8527a27dbb25",
+        "pointer_storage": "s3://forensics/artifacts/DRN-004//530d0c55_survey_frame_2345.jpg"
+      }
+    ],
+    "warnings": []
+  },
+  "E_suspicious": {
+    "ingest_metadata": {
+      "ingest_id": "ingest_84183ef373fb",
+      "drone_id": "DRN-999",
+      "timestamp": "2025-10-13T04:00:00Z",
+      "received_at": "2026-03-31T19:47:13.082620+00:00",
+      "mission_id": "MSN-666",
+      "mission_zone": "zone-c",
+      "geo": {
+        "lat": 12.98,
+        "lon": 77.6,
+        "alt": 50.0
+      },
+      "operator_id": "OP-00",
+      "firmware_version": "v0.0.1",
+      "num_files": 1,
+      "total_size_bytes": 15000000,
+      "insecure_flags": [
+        "double_extension",
+        "encrypted_payload",
+        "executable_file",
+        "large_binary",
+        "nested_archive",
+        "suspicious_mime"
+      ],
+      "auth_result": "unknown",
+      "notes": "device unknown; CRITICAL: executable_file; high-risk: double_extension, suspicious_mime; defer analysis: encrypted or nested contents",
+      "auth_details": {
+        "status": "unknown",
+        "drone_id": "DRN-999",
+        "trusted": false,
+        "details": {
+          "reason": "device_not_in_registry",
+          "policy_applied": "flag"
+        }
+      },
+      "zone_risk": 0.8,
+      "additional_metadata": {
+        "mission_sensitivity": "critical"
+      }
+    },
+    "artifact_records": [
+      {
+        "artifact_id": "artifact://f9c5b5341c4747bf",
+        "filename": "data.tar.gz.exe",
+        "type": "archive",
+        "mime": "application/x-msdownload",
+        "size_bytes": 15000000,
+        "encryption": true,
+        "container": true,
+        "security_flags": [
+          "encrypted_payload",
+          "nested_archive",
+          "large_binary",
+          "suspicious_mime",
+          "executable_file",
+          "double_extension"
+        ],
+        "checksum_verified": null,
+        "thumbnail": null,
+        "pointer_storage": "s3://forensics/artifacts/DRN-999//e455d45e_data.tar.gz.exe"
+      }
+    ],
+    "warnings": [
+      "payload_0:unrecognized_mime:application/x-msdownload"
+    ]
+  }
+}
