@@ -35,7 +35,8 @@
 15. [Testing Strategy](#15-testing-strategy)
 16. [Deployment and Operations](#16-deployment-and-operations)
 17. [Risk Assessment](#17-risk-assessment)
-18. [Glossary](#18-glossary)
+18. [Implementation Roadmap](#18-implementation-roadmap)
+19. [Glossary](#19-glossary)
 
 ---
 
@@ -1857,7 +1858,31 @@ implementation).
 
 ---
 
-## 18. Glossary
+## 18. Implementation Roadmap
+
+| Phase | Deliverable | Status |
+|---|---|---|
+| **Phase 1** | Core framework: config, models, validator, authenticator | Done |
+| **Phase 1** | Payload analyzer (9-point security heuristic) | Done |
+| **Phase 1** | Checksum verifier (SHA-256 integrity verification) | Done |
+| **Phase 1** | Metadata extractor (mission context, geo, telemetry) | Done |
+| **Phase 1** | Artifact manager (ID generation, storage pointers) | Done |
+| **Phase 1** | Uplink receiver and command handler | Done |
+| **Phase 1** | Main orchestrator (IngestionInterceptor class) | Done |
+| **Phase 1** | Unit test suite (31 tests) | Done |
+| **Phase 2** | Ed25519 asymmetric signature verification | Planned |
+| **Phase 2** | mTLS authentication for drone-to-edge communication | Planned |
+| **Phase 2** | Rate limiting per drone_id (flood attack prevention) | Planned |
+| **Phase 2** | Firmware version whitelisting | Planned |
+| **Phase 3** | Async processing with asyncio for high-throughput | Planned |
+| **Phase 3** | Redis/Kafka integration for distributed command queuing | Planned |
+| **Phase 3** | Real S3/MinIO storage backend integration | Planned |
+| **Phase 3** | gRPC/MQTT uplink channel (replace file/memory modes) | Planned |
+| **Phase 3** | Prometheus metrics export for monitoring | Planned |
+
+---
+
+## 19. Glossary
 
 | Term                        | Definition                                                                                           |
 |-----------------------------|------------------------------------------------------------------------------------------------------|

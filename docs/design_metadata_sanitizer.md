@@ -31,7 +31,8 @@
 14. [Testing Strategy](#14-testing-strategy)
 15. [Deployment and Operations](#15-deployment-and-operations)
 16. [Risk Assessment](#16-risk-assessment)
-17. [Glossary](#17-glossary)
+17. [Implementation Roadmap](#17-implementation-roadmap)
+18. [Glossary](#18-glossary)
 
 ---
 
@@ -1041,7 +1042,32 @@ Processes sample files from `drone_local_storage/` in three modes (audit, select
 
 ---
 
-## 17. Glossary
+## 17. Implementation Roadmap
+
+| Phase | Deliverable | Status |
+|---|---|---|
+| **Phase 1** | Core framework: config, models, orchestrator, handler registry | Done |
+| **Phase 1** | Text handler + Archive handler (stdlib only) | Done |
+| **Phase 1** | Sanitization rules (EXIF, PDF, video) — declarative definitions | Done |
+| **Phase 1** | Image handler (Pillow/piexif, with graceful fallback) | Done |
+| **Phase 1** | PDF handler (pikepdf, with graceful fallback) | Done |
+| **Phase 1** | Video handler (mutagen, with graceful fallback) | Done |
+| **Phase 1** | Unit test suite (94 tests) | Done |
+| **Phase 2** | Threat-score-driven mode selection | Done |
+| **Phase 2** | Forensic preservation (.orig files, before/after hashing) | Done |
+| **Phase 2** | Post-sanitization verification with auto-restore | Done |
+| **Phase 2** | Batch processing API | Done |
+| **Phase 3** | Sandboxed handler execution (subprocess isolation) | Planned |
+| **Phase 3** | Magic-bytes-based file type detection (python-magic) | Planned |
+| **Phase 3** | Integration with Threat Intelligence Correlator | Planned |
+| **Phase 3** | Async processing (asyncio) for high-throughput | Planned |
+| **Phase 3** | gRPC/REST API for microservice deployment | Planned |
+| **Phase 3** | Prometheus metrics export | Planned |
+| **Phase 3** | Custom rule engine (user-defined strip/keep rules) | Planned |
+
+---
+
+## 18. Glossary
 
 | Term | Definition |
 |---|---|
