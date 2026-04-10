@@ -98,8 +98,7 @@ inspection depth applied by downstream detection engines.
 
 The module also supports a **secure uplink channel** from the control center,
 enabling real-time quarantine commands, device revocations, zone risk updates,
-and dynamic parameter adjustment --- fulfilling the BEL proposal requirement
-for a live feedback loop between the security dashboard and the edge detection
+and dynamic parameter adjustment for a live feedback loop between the security dashboard and the edge detection
 engine.
 
 ---
@@ -110,8 +109,8 @@ engine.
 
 | ID   | Goal                                                                                   |
 |------|----------------------------------------------------------------------------------------|
-| G-1  | Authenticate source devices using metadata (timestamps, drone ID, geolocation) per BEL proposal Section 4.2 |
-| G-2  | Validate data format, structure, and integrity of every incoming drone submission       |
+| G-1  | Authenticate source devices using metadata (timestamps, drone ID, geolocation)         |
+| G-2  | Validate data format, structure, and integrity of every incoming drone submission      |
 | G-3  | Extract and record metadata: drone ID, mission zone, timestamps, encryption status     |
 | G-4  | Identify ZIP/encrypted file types and flag them for deferred deep analysis              |
 | G-5  | Act as a secure data funnel preventing uncontrolled input into the analysis pipeline    |
@@ -136,8 +135,7 @@ engine.
 
 ## 3. System Context
 
-The Ingestion Interceptor operates within a three-layer architecture as defined
-in the BEL project proposal. The following diagram shows the complete system
+The Ingestion Interceptor operates within a three-layer architecture. The following diagram shows the complete system
 with all modules and the data flow between them.
 
 ### 3.1 Full System Architecture
@@ -2006,8 +2004,6 @@ exe, dll, bat, cmd, ps1, sh, vbs, js, msi, scr, com
 
 ### 12.1 Functional Requirements
 
-These requirements are derived from the BEL project proposal (Sections 4.2,
-5.1, and 6.3).
 
 | ID    | Requirement                                                                            | BEL Ref  | Status      |
 |-------|----------------------------------------------------------------------------------------|----------|-------------|
