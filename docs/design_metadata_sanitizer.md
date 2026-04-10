@@ -159,13 +159,36 @@ The Metadata Sanitizer occupies a specific position in the multi-layered detecti
 
 | Aspect | Ingestion Interceptor | Metadata Sanitizer |
 |---|---|---|
-| **Operates on** | JSON metadata (drone submission structure) | File-level embedded metadata (binary content) |
+| **Operates on** | Wire-level UDP packets (Stage 0) and parsed dicts (Stages 1-7) | File-level embedded metadata (binary content) |
 | **Position** | First stage (before threat estimation) | After malware detection engine |
 | **Concerns** | Structure validation, authentication, cataloging | Deep content inspection, EXIF scrubbing, script removal |
 | **Dependencies** | None (stdlib only, entry point) | Pillow, piexif, pikepdf, mutagen (optional) |
 | **Latency** | Must be near-zero for real-time ingestion | Can tolerate slightly higher latency (post-triage) |
 | **Failure mode** | Rejects entire submission | Can fail per-file; submission already cataloged |
 | **Modifies files** | Never (read-only analysis) | Yes (strips/rewrites metadata) |
+
+### 3.2.1 Wire I/O — out of scope (rationale)
+
+Unlike the Ingestion Interceptor, the Metadata Sanitizer **does not have a
+wire entry point and is not intended to**. It runs entirely inside the
+trust boundary that the Interceptor establishes:
+
+- **Inputs are already-trusted Python objects:** an `ArtifactRecord` dict
+  (from `IngestionInterceptor.process()`), a threat score (from the
+  Game-Theoretic Estimator), and `insecure_flags` from `IngestMetadata`.
+  All of these have already been authenticated, validated, and cataloged
+  upstream.
+- **File bytes come from local edge-node storage**, addressed by the
+  artifact's `pointer_storage` URI. The file was placed there by the
+  ingestion pipeline; no untrusted network channel is involved.
+- **Sending file bytes over a wire protocol would be a regression.**
+  Sanitizer reads multi-megabyte videos and PDFs for parsing; framing
+  those into UDP packets adds latency and protocol ceremony for zero
+  security benefit because the data is already authenticated.
+
+Stage 0 packet reception belongs to Module 1 (Ingestion Interceptor)
+only. Modules 2-9 in the BEL architecture are internal pipeline stages
+that pass Python objects and filesystem references in-process.
 
 ### 3.3 Data Flow Between Modules
 
@@ -245,7 +268,7 @@ metadata_sanitizer/
 │
 ├── tests/                      # Test suite
 │   ├── __init__.py
-│   └── test_sanitizer.py       # 50+ unit tests
+│   └── test_sanitizer.py       # 94 unit tests
 │
 └── run_demo.py                 # Demo runner with sample files
 ```
@@ -382,8 +405,7 @@ Input: artifact_record + threat_score
 
 **Key design decisions:**
 - **Handler caching:** One handler instance per class, reused across files
-- **Fail-safe:** If sanitization corrupts a file, the original is restored from the `.orig` copy
-- **Idempotency:** Running sanitization twice produces the same result
+- **Fail-safe:** If sanitization corrupts a file, the original is restored from the `.orig` copy and the result's `sanitized` flag is reset to `False` so stats and the caller-facing report reflect the rollback
 
 ### 5.2 Mode Resolver
 
@@ -816,19 +838,28 @@ Client              MetadataSanitizer        Handler            Rules          F
 | `threat_score_strip_threshold` | `float` | `0.7` | T_S above this → strip mode |
 | `threat_score_audit_threshold` | `float` | `0.3` | T_S below this → audit mode |
 | `preserve_gps` | `bool` | `False` | Keep GPS data in images/video |
-| `preserve_camera_serial` | `bool` | `False` | Keep camera serial numbers |
-| `max_metadata_size_bytes` | `int` | `1,048,576` | Flag fields exceeding 1 MB |
 | `max_file_size_bytes` | `int` | `500,000,000` | Skip files larger than 500 MB |
-| `max_exif_field_bytes` | `int` | `65,536` | Individual EXIF field size cap |
-| `verify_after_sanitize` | `bool` | `True` | Re-parse file after cleaning |
+| `max_exif_field_bytes` | `int` | `65,536` | Individual EXIF/atom field size cap (used by `BaseHandler.check_field_size_anomaly`) |
+| `verify_after_sanitize` | `bool` | `True` | Re-parse file after cleaning; rollback to `.orig` on failure |
 | `preserve_originals` | `bool` | `True` | Keep `.orig` copy for forensics |
+| `original_suffix` | `str` | `".orig"` | Suffix appended to the preserved-original copy |
 | `compute_before_after_hash` | `bool` | `True` | SHA-256 of metadata before/after |
-| `log_all_metadata` | `bool` | `True` | Log extracted metadata |
+| `output_suffix` | `str` | `""` | Suffix for sanitized files (`""` = in-place) |
+| `output_directory` | `str` | `""` | Separate output dir (empty = same as source) |
+| `log_all_metadata` | `bool` | `True` | Log extracted metadata before sanitization |
 | `log_level` | `str` | `"INFO"` | Logging level |
-| `sandboxed_execution` | `bool` | `False` | Run handlers in subprocess |
-| `sandbox_timeout_seconds` | `float` | `30.0` | Handler timeout in sandbox |
 | `skip_mime_types` | `Set[str]` | executables | MIME types to skip entirely |
-| `skip_already_sanitized` | `bool` | `True` | Skip files with sanitization marker |
+
+> **Reserved (Phase 3):** the following config knobs were stubbed in
+> earlier drafts but never wired up. They have been removed from
+> `SanitizerConfig` in v2.0 to keep the surface area honest, and will be
+> reintroduced when the corresponding features land:
+>
+> - `sandboxed_execution`, `sandbox_timeout_seconds` — subprocess sandbox for handlers
+> - `skip_already_sanitized`, `sanitization_marker_key`, `sanitization_marker_value` — idempotency marker
+> - `preserve_camera_serial` — finer-grained EXIF preservation (currently camera serials are removed in `strip` mode along with other identifying tags via `EXIF_STRIP_IN_HIGH_SECURITY`)
+> - `max_metadata_size_bytes` — global metadata-size flag (handlers currently use `max_exif_field_bytes` and per-handler constants)
+> - `structured_logging` — JSON log format flag
 
 ---
 
@@ -874,11 +905,11 @@ Layer 6: Response & Quarantine Manager
 |---|---|
 | **Parser safety** | Use well-maintained libraries (Pillow, pikepdf, mutagen); no custom binary parsers |
 | **Output validation** | Always verify file integrity after sanitization (re-parse, check rendering) |
-| **Sandboxed execution** | Config option to run handlers in restricted subprocess (no network, limited FS) |
-| **Idempotency** | Running sanitization twice produces the same result |
+| **Sandboxed execution** | *Planned (Phase 3)* — handlers will run in a restricted subprocess (no network, limited FS). Not implemented in v2.0. |
+| **Idempotency marker** | *Planned (Phase 3)* — files will carry an `X-Sanitized-By` marker so re-runs short-circuit. Not implemented in v2.0; in practice, re-sanitizing an already-cleaned file is a no-op for SELECTIVE/STRIP mode because there is nothing left to strip. |
 | **Forensic preservation** | Keep original file copy and full before/after metadata hash |
 | **Graceful degradation** | Missing library → handler unavailable → skip with warning (not crash) |
-| **Fail-safe restoration** | If verification fails after sanitization → restore original from `.orig` copy |
+| **Fail-safe restoration** | If verification fails after sanitization → restore original from `.orig` copy AND reset `result.sanitized=False` so the rollback is reflected in stats and the caller-facing report |
 
 ---
 
@@ -915,7 +946,7 @@ The sanitizer processes files sequentially within a single submission. For high-
 
 | Library | Purpose | License | Required By |
 |---|---|---|---|
-| Python 3.8+ | Runtime | PSF | All |
+| Python 3.9+ | Runtime | PSF | All |
 | Python stdlib | zipfile, tarfile, json, hashlib, re | PSF | ArchiveHandler, TextHandler |
 
 ### 13.2 Optional Dependencies
@@ -948,21 +979,22 @@ python -c "from metadata_sanitizer import ImageHandler, PdfHandler, VideoHandler
 
 ### 14.1 Test Coverage
 
-| Category | Tests | What's Covered |
+| Test Class | Tests | What's Covered |
 |---|---|---|
-| **Config** | 4 | Default values, custom overrides, thresholds, skip sets |
-| **Models** | 8 | Enum values, to_dict() serialization, snapshot creation |
-| **EXIF Rules** | 6 | Strip sets per mode, GPS preservation, no strip-preserve overlap |
-| **PDF Rules** | 4 | JavaScript/action presence, dangerous actions, no overlap |
-| **Video Rules** | 4 | GPS/comment/structural tags, no strip-preserve overlap |
-| **Handler Registry** | 9 | MIME routing, prefix fallback, unknown MIME default |
-| **BaseHandler** | 5 | Snapshot creation, change recording, size anomaly detection |
-| **TextHandler** | 10 | Encoding, null bytes, BOM, line endings, script detection, audit mode |
-| **ArchiveHandler** | 8 | ZIP metadata, path traversal, executables, double ext, zip bomb |
-| **Sanitizer** | 15 | Mode selection (threat/override/flags/default), pre-checks, text/archive/batch processing, stats, serialization |
-| **Storage Resolution** | 5 | Absolute paths, file:/ URIs, S3 fallback, relative paths |
+| `TestSanitizerConfig` | 4 | Default values, custom overrides, thresholds, skip sets |
+| `TestModels` | 8 | Enum values, to_dict() serialization, snapshot creation |
+| `TestExifRules` | 10 | Strip sets per mode, GPS preservation, no strip-preserve overlap |
+| `TestPdfRules` | 4 | JavaScript/action presence, dangerous actions, no overlap |
+| `TestVideoRules` | 4 | GPS/comment/structural tags, no strip-preserve overlap |
+| `TestHandlerRegistry` | 10 | MIME routing, prefix fallback, unknown MIME default |
+| `TestBaseHandler` | 5 | Snapshot creation, change recording, size anomaly detection |
+| `TestTextHandler` | 13 | Encoding, null bytes, BOM, line endings, script detection, audit mode |
+| `TestArchiveHandler` | 9 | ZIP metadata, path traversal, executables, double ext, zip bomb |
+| `TestSanitizer` | 19 | Mode selection (threat/override/flags/default), pre-checks, text/archive/batch processing, stats, serialization, **verification rollback (with and without `.orig`)** |
+| `TestHandlerAvailability` | 5 | `is_available()` for each handler |
+| `TestStoragePointerResolution` | 5 | Absolute paths, file:/ URIs, S3 fallback, relative paths |
 
-**Total: 50+ unit tests**
+**Total: 96 unit tests**
 
 ### 14.2 Running Tests
 

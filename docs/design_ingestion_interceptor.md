@@ -2,7 +2,7 @@
 
 | Field            | Value                                                                   |
 |------------------|-------------------------------------------------------------------------|
-| **Version**      | 2.0                                                                     |
+| **Version**      | 3.0                                                                     |
 | **Status**       | Implemented                                                             |
 | **Module**       | `ingestion_interceptor/`                                                |
 | **Authors**      | Sangam Kumar Mishra                                                     |
@@ -10,9 +10,22 @@
 | **Sponsor**      | Bharat Electronics Ltd (BEL)                                            |
 | **Project**      | Detection and Prevention of Malware and Malicious File Injection in RPA/Drone Feeds |
 | **Created**      | 2025-10-13                                                              |
-| **Last Updated** | 2026-04-01                                                              |
-| **Depends On**   | Python 3.9+, `hashlib`, `hmac`, `dataclasses`, `json`, `uuid`, `logging` |
+| **Last Updated** | 2026-04-09                                                              |
+| **Depends On**   | Python 3.9+, `hashlib`, `hmac`, `dataclasses`, `json`, `uuid`, `logging`, `socket`, `struct`, `threading` |
 | **Depended On By** | Game-Theoretic Threat Estimator, Metadata Sanitizer, Security Dashboard |
+
+> **v3.0 change summary:** Added Stage 0 (Packet Reception & Reassembly).
+> The interceptor now accepts wire-level UDP packets directly from drone
+> platforms, in addition to the in-process dict entry point. New
+> `ingestion_interceptor/protocol/` subpackage defines a 32-byte fixed
+> binary packet header and a TLV (Type-Length-Value) submission marshaller.
+> A new `packet_receiver.py` module runs a UDP listener thread, verifies
+> per-packet HMAC-SHA256, reassembles fragmented submissions, and feeds
+> them into the existing 7-stage pipeline unchanged. v3.0 also fixes a
+> latent bug where telemetry anomalies (negative speed, invalid battery,
+> etc.) were detected but silently discarded — they now surface as
+> `telemetry_*` security flags in `IngestMetadata.insecure_flags`. See
+> §5.10, §5.11, §8.4, §9.6, §10.6, FR-21..25, R-16..21.
 
 ---
 
@@ -52,8 +65,14 @@ infrastructure.
 The Ingestion Interceptor acts as a **secure data funnel** that prevents
 uncontrolled input from entering the analysis pipeline. Every incoming drone
 submission --- containing video, imagery, telemetry, and metadata --- passes
-through a seven-stage processing pipeline:
+through an eight-stage processing pipeline:
 
+0. **Packet Reception & Reassembly** --- receives wire-level UDP datagrams
+   from drone platforms, verifies per-packet HMAC-SHA256, reassembles
+   fragmented submissions, and decodes the binary TLV payload back into a
+   structured submission. This stage is optional: the interceptor still
+   accepts in-process dict submissions via the legacy `process()` entry
+   point for tests, demos, and the original integration path.
 1. **Structure Validation** --- verifies required fields, data types, timestamps,
    size limits, and path traversal defences.
 2. **Device Authentication** --- verifies drone identity through a device
@@ -234,10 +253,17 @@ with all modules and the data flow between them.
                    │              TRUST BOUNDARY                           │
                    │                                                       │
   ┌────────┐       │  ┌─────────────────────────────────────────────────┐  │
-  │ Drone  │ ─────────►│         INGESTION INTERCEPTOR                  │  │
-  │ / RPA  │  JSON  │  │                                                 │  │
-  │Platform│ payload│  │  Input:  Raw drone submission JSON              │  │
-  └────────┘       │  │  Output: IngestResult (metadata + artifacts)    │  │
+  │ Drone  │ ── UDP ──►│         INGESTION INTERCEPTOR                  │  │
+  │ / RPA  │ packets│  │                                                 │  │
+  │Platform│ (wire) │  │  Stage 0: Packet receiver (HMAC verify,        │  │
+  └────────┘       │  │           reassemble, decode binary TLV)        │  │
+                   │  │  Stages 1-7: Validate, authenticate, extract    │  │
+                   │  │           metadata, analyse, checksum, catalog,  │  │
+                   │  │           assemble                               │  │
+                   │  │                                                 │  │
+                   │  │  Input:  UDP packets (Stage 0) OR dict          │  │
+                   │  │          (in-process via process())              │  │
+                   │  │  Output: IngestResult (metadata + artifacts)    │  │
                    │  │                    OR error report               │  │
                    │  └──────────────┬──────────────────────────────────┘  │
                    │                 │                                      │
@@ -276,9 +302,19 @@ ingestion_interceptor/
 ├── metadata_extractor.py    Mission context, geo, telemetry, additional metadata
 ├── artifact_manager.py      Artifact ID generation, storage pointers, thumbnails
 ├── uplink.py                Control center uplink command handling
-├── interceptor.py           Main orchestrator (7-stage pipeline)
+├── packet_receiver.py       Stage 0: UDP listener, reassembly buffer, statistics
+├── protocol/                Wire protocol subpackage (Stage 0 codec)
+│   ├── __init__.py            Re-exports the public protocol surface
+│   ├── packet.py              PacketHeader dataclass, PacketType enum, header layout
+│   ├── codec.py               encode_packet / decode_packet (32-byte header + HMAC)
+│   ├── submission_codec.py    Binary TLV marshaller for DroneSubmission
+│   └── errors.py              Codec exception hierarchy
+├── interceptor.py           Main orchestrator (8-stage pipeline)
 └── tests/
-    └── test_interceptor.py  31 unit tests across all components
+    ├── test_interceptor.py     31 unit tests for the original 7 stages
+    ├── test_packet_codec.py    13 tests for packet framing
+    ├── test_submission_codec.py 14 tests for the binary submission marshaller
+    └── test_packet_receiver.py 17 tests for reassembly + UDP listener
 ```
 
 ### 4.2 Component Dependency Diagram
@@ -288,7 +324,9 @@ ingestion_interceptor/
 │                         interceptor.py                               │
 │                    (IngestionInterceptor class)                       │
 │                                                                      │
-│  Orchestrates all components in a 7-stage sequential pipeline        │
+│  Orchestrates all components in an 8-stage sequential pipeline.      │
+│  Stage 0 (packet_receiver + protocol) is optional and runs upstream  │
+│  when start_packet_listener() is called.                              │
 └───┬──────┬──────┬──────┬──────┬──────┬──────┬───────────────────────┘
     │      │      │      │      │      │      │
     ▼      │      │      │      │      │      │
@@ -356,7 +394,15 @@ ingestion_interceptor/
 ### 4.3 Data Flow Through the Pipeline
 
 ```
-  Raw JSON ──► validate_submission()
+  ┌── Stage 0 (optional, when start_packet_listener is running) ──┐
+  │                                                                │
+  │  UDP packets ──► PacketReceiver (HMAC verify + reassemble)    │
+  │             ──► decode_submission() ──► dict                   │
+  │                                                                │
+  └────────────────────────┬───────────────────────────────────────┘
+                           │
+                           ▼
+  Raw dict ──► validate_submission()
                     │
                     │ errors? ──► REJECT (IngestResult.success=False)
                     │
@@ -421,6 +467,10 @@ posture suitable for field deployment.
 - **Logging** --- `log_level`, `structured_logging`
 - **Uplink** --- `uplink_enabled`, `uplink_endpoint`,
   `uplink_poll_interval_seconds`
+- **Stage 0 packet listener** --- `packet_listener_host`,
+  `packet_listener_port`, `packet_max_session_chunks`,
+  `packet_max_concurrent_sessions`, `packet_session_timeout_seconds`,
+  `packet_hmac_required`, `packet_replay_window_seconds`
 
 ### 5.2 `models.py` --- Data Models
 
@@ -654,11 +704,139 @@ edge interceptor, supporting real-time operational commands.
 | `UPDATE_CONFIG`     | `*`                 | Reserved for dynamic configuration updates           |
 | `FORCE_RESCAN`      | `ingest_id`         | Reserved for triggering re-analysis                  |
 
-### 5.10 `interceptor.py` --- Main Orchestrator
+### 5.10 `packet_receiver.py` --- Stage 0: Packet Reception & Reassembly
+
+**Purpose:** Receives wire-level UDP packets from drone platforms,
+authenticates each packet via per-drone HMAC, reassembles fragmented
+submissions into a single binary blob, decodes that blob into a
+`DroneSubmission` dict, and hands it to the existing 7-stage pipeline
+through a callback.
+
+**Three classes:**
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│                     ReassemblyBuffer                               │
+│                                                                    │
+│  Per-session state for reassembling a fragmented submission.      │
+│  Keyed by (drone_id, session_id).                                  │
+│                                                                    │
+│   - chunks: dict[seq -> bytes]                                     │
+│   - total_chunks: int (set in SESSION_START)                       │
+│   - started_at: float (for timeout enforcement)                    │
+│   - add_chunk(seq, payload) -> bool  (False on duplicate)          │
+│   - is_complete() -> bool                                          │
+│   - is_expired(timeout) -> bool                                    │
+│   - assemble() -> bytes (raises on missing chunks)                 │
+└────────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────┐
+│                     PacketReceiver                                 │
+│                                                                    │
+│  UDP socket listener running in a daemon thread.                   │
+│                                                                    │
+│   - start() / stop()                                               │
+│   - bound_address property                                         │
+│   - update_key_store()                                             │
+│   - on_submission callback (called once per reassembled session)   │
+│                                                                    │
+│  Internals:                                                        │
+│   - _listen_loop  blocks on socket.recvfrom; periodic GC pass      │
+│   - _handle_packet  decode_unverified → look up key → verify HMAC  │
+│   - _handle_session_start / _chunk / _session_end                  │
+│   - _finalize_session  pop buffer, assemble, decode, callback      │
+│   - _gc_expired_sessions  drops half-open sessions                 │
+└────────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────┐
+│                     PacketReceiverStats                            │
+│                                                                    │
+│  Counters surfaced via interceptor.packet_stats:                   │
+│                                                                    │
+│   packets_received                                                 │
+│   packets_dropped_malformed       (bad magic/version/length)       │
+│   packets_dropped_hmac            (HMAC verification failure)      │
+│   packets_dropped_unknown_drone   (no key configured)              │
+│   packets_dropped_replay          (duplicate seq within session)   │
+│   packets_dropped_orphaned        (CHUNK for unknown session_id)   │
+│   packets_dropped_session_overflow                                 │
+│   sessions_started / sessions_completed                            │
+│   sessions_expired                (GC drained)                     │
+│   sessions_truncated              (SESSION_END with missing chunks)│
+│   submissions_decoded / submissions_decode_failed                  │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+**Reassembly trigger logic:**
+A session is finalized whenever ANY of these happen first:
+1. **Eager:** all `total_chunks` chunks have arrived (fastest path)
+2. **Explicit:** `SESSION_END` packet received (handles dynamic streams)
+3. **Timeout:** session has lived longer than `packet_session_timeout_seconds`
+   (rejected as expired by the periodic janitor pass)
+
+If `SESSION_END` arrives but chunks are missing, the session is rejected
+with `incomplete_packet_stream` and counted in `sessions_truncated`. This
+surfaces truncation attacks and benign network loss as a security signal.
+
+**Stage 0 security defenses (see also §10.6):**
+- Magic-byte + version verification
+- Per-packet HMAC-SHA256 verification (constant-time compare)
+- Per-session monotonic seq with duplicate detection
+- Duplicate SESSION_START rejection (prevents buffer hijack via session-id guessing)
+- Reassembly timeout (default 30s) enforced by a wall-clock periodic GC pass
+  that fires under both quiet and continuous traffic
+- Max chunks per session (default 256)
+- Max concurrent sessions per drone (default 100)
+- Max payload_len per packet (1024 bytes)
+- Sequence-gap detection at SESSION_END (truncation defense)
+
+### 5.11 `protocol/` --- Wire Protocol Subpackage
+
+**Purpose:** Defines the binary packet format and the binary submission
+marshaller used by Stage 0. Both the drone (sender) and the interceptor
+(receiver) import from this subpackage so that the wire contract has a
+single source of truth.
+
+**Two layers:**
+
+1. **Packet framing** (`packet.py` + `codec.py`)
+   - 32-byte fixed header + variable-length payload + 32-byte HMAC-SHA256 tag
+   - Three packet types: `SESSION_START`, `CHUNK`, `SESSION_END`
+   - `encode_packet(header, payload, key) -> bytes` and
+     `decode_packet(raw, key) -> (header, payload)` are the public API
+   - `decode_packet_unverified()` is used internally by the receiver to
+     extract the drone_id from a SESSION_START packet *before* looking up
+     the per-drone HMAC key
+
+2. **Submission marshalling** (`submission_codec.py`)
+   - `encode_submission(dict) -> bytes` and `decode_submission(bytes) -> dict`
+   - TLV (Type-Length-Value) encoding modelled on MAVLink's spirit
+   - Envelope: `"DSUB"` magic + version + reserved + field count
+   - Top-level field tags carry drone_id, timestamp, mission_id, mission_zone,
+     geo (24 B fixed), telemetry (40 B fixed), signature, firmware_version,
+     operator_id, additional_metadata (kv substream), and one tag per payload entry
+   - Payload substream encodes type/filename/mime/size_bytes/encryption/container/checksum/uri
+   - All strings are utf-8; numeric fields are big-endian
+   - Maximum value length per TLV: 65535 bytes (uint16 length field)
+
+**Design rationale:**
+- Custom binary framing demonstrates real packet-level security work
+  (magic, version, HMAC, replay) instead of leaning on a library that
+  hides those concerns
+- TLV encoding lets optional fields drop out naturally and supports
+  forward-compatible extension (unknown tags are skipped on decode)
+- Zero external dependencies — pure `struct.pack` and `hmac` from stdlib
+- Protocol is symmetric: the same `protocol/` subpackage is imported by
+  the drone simulator (`drone/packet_transmitter.py`) and the receiver
+  (`packet_receiver.py`)
+
+### 5.12 `interceptor.py` --- Main Orchestrator
 
 **Purpose:** The `IngestionInterceptor` class ties all modules together into
-a coherent seven-stage sequential pipeline. It is the primary entry point for
-processing drone submissions.
+a coherent eight-stage sequential pipeline. Stage 0 is the optional UDP
+packet receiver; Stages 1-7 run inside `process()`. The class is the
+primary entry point for processing drone submissions whether they arrive
+as wire packets or as in-process dicts.
 
 **Initialization parameters:**
 - `config` --- `InterceptorConfig` instance (or default)
@@ -680,6 +858,12 @@ processing drone submissions.
 - `stats` property --- returns `{total_processed, total_rejected, total_flagged}`
 - `authenticator` property --- exposes the authenticator for direct access
 - `uplink_receiver` property --- exposes the uplink receiver for command injection
+- `start_packet_listener(host, port)` --- launches the Stage 0 UDP listener in
+  a daemon thread; reassembled submissions are forwarded automatically into
+  `process()`
+- `stop_packet_listener()` --- shuts down the listener thread and closes the socket
+- `packet_receiver` property --- direct access to the `PacketReceiver` instance
+- `packet_stats` property --- live snapshot of `PacketReceiverStats`
 
 **Functional API:** `ingestion_interceptor()` provides a backward-compatible
 functional interface that creates a temporary `IngestionInterceptor` and
@@ -903,18 +1087,22 @@ IngestionInterceptor(
 
 **Methods:**
 
-| Method                    | Signature                                             | Returns        | Description                          |
-|---------------------------|-------------------------------------------------------|----------------|--------------------------------------|
-| `process(drone_json)`     | `(Dict[str, Any]) -> IngestResult`                    | `IngestResult` | Process a single drone submission    |
-| `process_batch(submissions)` | `(List[Dict[str, Any]]) -> List[IngestResult]`     | `List[IngestResult]` | Process multiple submissions    |
+| Method                          | Signature                                                              | Returns                | Description                                                                          |
+|---------------------------------|------------------------------------------------------------------------|------------------------|--------------------------------------------------------------------------------------|
+| `process(drone_json)`           | `(Dict[str, Any]) -> IngestResult`                                     | `IngestResult`         | Process a single drone submission (dict entry point)                                 |
+| `process_batch(submissions)`    | `(List[Dict[str, Any]]) -> List[IngestResult]`                         | `List[IngestResult]`   | Process multiple submissions sequentially                                            |
+| `start_packet_listener(host, port)` | `(Optional[str], Optional[int]) -> None`                           | None                   | Stage 0: launch the UDP packet receiver in a daemon thread; reassembled submissions are fed into `process()` automatically. `host`/`port` default to config values; pass `port=0` for OS-assigned ephemeral port. |
+| `stop_packet_listener()`        | `() -> None`                                                           | None                   | Stop the daemon thread and close the listener socket.                                |
 
 **Properties:**
 
-| Property          | Type              | Description                                    |
-|-------------------|-------------------|------------------------------------------------|
-| `stats`           | `Dict[str, int]`  | `{total_processed, total_rejected, total_flagged}` |
-| `authenticator`   | `Authenticator`   | Direct access to the authenticator instance    |
-| `uplink_receiver` | `UplinkReceiver`  | Direct access to the uplink receiver           |
+| Property          | Type                                | Description                                                                    |
+|-------------------|-------------------------------------|--------------------------------------------------------------------------------|
+| `stats`           | `Dict[str, int]`                    | `{total_processed, total_rejected, total_flagged}` (pipeline counters)        |
+| `authenticator`   | `Authenticator`                     | Direct access to the authenticator instance                                    |
+| `uplink_receiver` | `UplinkReceiver`                    | Direct access to the uplink receiver                                           |
+| `packet_receiver` | `Optional[PacketReceiver]`          | Direct access to the Stage 0 receiver (None until `start_packet_listener()`)  |
+| `packet_stats`    | `Optional[PacketReceiverStats]`     | Live snapshot of Stage 0 counters (None until packet listener is running)     |
 
 ### 7.2 Functional API
 
@@ -994,6 +1182,33 @@ prototype code.
 | `UplinkReceiver.poll_commands()`   | `() -> List[UplinkCommand]`                     | Pending commands |
 | `UplinkReceiver.acknowledge()`     | `(command_id: str) -> None`                     | None             |
 | `UplinkCommandHandler.handle()`    | `(command: UplinkCommand) -> Dict[str, Any]`    | Result dict      |
+
+**`protocol/codec.py`:** (packet framing)
+
+| Function                       | Signature                                                              | Returns                    |
+|--------------------------------|------------------------------------------------------------------------|----------------------------|
+| `encode_packet()`              | `(header: PacketHeader, payload: bytes, hmac_key: bytes) -> bytes`     | Wire bytes (32B hdr + payload + 32B HMAC) |
+| `decode_packet()`              | `(raw: bytes, hmac_key: bytes) -> Tuple[PacketHeader, bytes]`          | Parsed + verified packet   |
+| `decode_packet_unverified()`   | `(raw: bytes) -> Tuple[PacketHeader, bytes, bytes]`                    | Parses header + payload + HMAC tag without verifying (used internally to fetch drone_id from SESSION_START before key lookup) |
+| `verify_hmac()`                | `(header, payload, tag, hmac_key) -> None`                             | Raises `HmacMismatch` on failure |
+
+**`protocol/submission_codec.py`:** (binary TLV marshaller)
+
+| Function                       | Signature                                                              | Returns                    |
+|--------------------------------|------------------------------------------------------------------------|----------------------------|
+| `encode_submission()`          | `(submission: Dict[str, Any]) -> bytes`                                | Binary envelope + TLV records |
+| `decode_submission()`          | `(buf: bytes) -> Dict[str, Any]`                                       | Reconstructed submission dict |
+
+**`packet_receiver.py`:** (Stage 0 listener)
+
+| Function / Method                  | Signature                                                                            | Returns          |
+|------------------------------------|--------------------------------------------------------------------------------------|------------------|
+| `PacketReceiver.start()`           | `() -> None`                                                                         | Binds the UDP socket and launches the listener thread |
+| `PacketReceiver.stop()`            | `(join_timeout: float = 2.0) -> None`                                                | Signals exit and closes the socket |
+| `PacketReceiver.update_key_store()`| `(key_store: Dict[str, str]) -> None`                                                | Replace the per-drone HMAC key store |
+| `PacketReceiver.bound_address`     | property                                                                             | `(host, port)` actually bound (resolves ephemeral ports) |
+| `PacketReceiver.stats`             | property                                                                             | Live `PacketReceiverStats` snapshot |
+| `PacketReceiverStats.to_dict()`    | `() -> Dict[str, int]`                                                               | All counters as a dict (for export to Prometheus/StatsD) |
 
 ---
 
@@ -1207,7 +1422,90 @@ prototype code.
     │                       │                    │                    │
 ```
 
-### 8.4 Rejection Flow (Validation Failure)
+### 8.4 Stage 0 — Packet Reception & Reassembly Flow
+
+```
+  Drone Platform        PacketReceiver        ReassemblyBuffer    process()
+    │                         │                       │              │
+    │  send_session():        │                       │              │
+    │  encode_submission()    │                       │              │
+    │  fragment into N chunks │                       │              │
+    │                         │                       │              │
+    │  SESSION_START          │                       │              │
+    │  (session_id, total=N)  │                       │              │
+    │────────────────────────►│                       │              │
+    │                         │  decode_packet_unverified()          │
+    │                         │  → drone_id from payload             │
+    │                         │  → look up HMAC key                  │
+    │                         │  → verify_hmac()                     │
+    │                         │                       │              │
+    │                         │  create ReassemblyBuffer             │
+    │                         │  store (drone_id, sid)│              │
+    │                         │──────────────────────►│              │
+    │                         │                       │              │
+    │  CHUNK seq=0            │                       │              │
+    │────────────────────────►│  decode + verify HMAC │              │
+    │                         │  add_chunk(0, payload)│              │
+    │                         │──────────────────────►│              │
+    │                         │                       │              │
+    │  CHUNK seq=1            │                       │              │
+    │────────────────────────►│  ...                  │              │
+    │                         │                       │              │
+    │  CHUNK seq=N-1          │                       │              │
+    │────────────────────────►│  add_chunk(N-1)       │              │
+    │                         │──────────────────────►│              │
+    │                         │   is_complete? → True │              │
+    │                         │◄──────────────────────│              │
+    │                         │                       │              │
+    │                         │  EAGER FINALIZATION:                 │
+    │                         │  pop session                         │
+    │                         │  assemble() → bytes                  │
+    │                         │  decode_submission() → dict          │
+    │                         │  on_submission(dict)                 │
+    │                         │─────────────────────────────────────►│
+    │                         │                       │  process()   │
+    │                         │                       │  (Stages 1-7)│
+    │                         │                       │              │
+    │  SESSION_END            │                       │              │
+    │────────────────────────►│  session_id unknown   │              │
+    │                         │  → benign late END    │              │
+    │                         │  (no error, no count) │              │
+    │                         │                       │              │
+```
+
+**Rejection / truncation paths:**
+
+```
+  Drone Platform           PacketReceiver
+    │                            │
+    │  CHUNK seq=k                │
+    │  (SESSION_START dropped)    │
+    │────────────────────────────►│  unknown session_id
+    │                            │  → packets_dropped_orphaned += 1
+    │                            │
+    │  Tampered CHUNK             │
+    │────────────────────────────►│  HMAC verification failed
+    │                            │  → packets_dropped_hmac += 1
+    │                            │
+    │  Replayed CHUNK seq=k       │
+    │────────────────────────────►│  add_chunk returns False
+    │                            │  → packets_dropped_replay += 1
+    │                            │
+    │  CHUNKs 0..k-1 sent,        │
+    │  CHUNK k missing,           │
+    │  SESSION_END                │
+    │────────────────────────────►│  assemble() raises
+    │                            │  → sessions_truncated += 1
+    │                            │  → "incomplete_packet_stream" log
+    │                            │
+    │  SESSION_START opens session│
+    │  (no further packets)       │
+    │  ...30s pass...             │
+    │                            │  GC pass detects expiry
+    │                            │  → sessions_expired += 1
+```
+
+### 8.5 Rejection Flow (Validation Failure)
 
 ```
   Caller                Interceptor          Validator
@@ -1437,6 +1735,97 @@ prototype code.
 }
 ```
 
+### 9.6 Stage 0 Wire Format
+
+When Stage 0 is enabled, drones submit data as a stream of UDP packets
+rather than a single JSON dict. Each packet is at most 1088 bytes:
+
+```
+   ┌─────────────────────────────────────────────────────────┐
+   │  Packet (≤ 1088 bytes total, big-endian)                │
+   ├─────────────────────────────────────────────────────────┤
+   │  Header (32 B fixed)                                    │
+   │    magic         4 B   0x52504144  ("RPAD")             │
+   │    version       1 B   0x01                             │
+   │    packet_type   1 B   1=SESSION_START 2=CHUNK 3=END    │
+   │    flags         2 B   bit 0: hmac_present              │
+   │    session_id    8 B   random 64-bit per submission     │
+   │    seq           4 B   monotonic uint32 within session  │
+   │    total_chunks  4 B   set in SESSION_START; 0 elsewhere│
+   │    payload_len   2 B   length of bytes following        │
+   │    reserved      6 B   zeroed                           │
+   ├─────────────────────────────────────────────────────────┤
+   │  Payload (≤ 1024 B)                                     │
+   ├─────────────────────────────────────────────────────────┤
+   │  HMAC tag (32 B)                                        │
+   │    HMAC-SHA256 over (header || payload)                 │
+   │    using the per-drone shared secret                    │
+   └─────────────────────────────────────────────────────────┘
+```
+
+**Per-submission packet sequence:**
+
+```
+   1. SESSION_START
+        seq=0, total_chunks=N
+        payload = drone_id (utf-8)
+   2. CHUNK seq=0
+        payload = first 1024 bytes of encode_submission(submission)
+   3. CHUNK seq=1
+        payload = next 1024 bytes
+        ...
+   N+1. CHUNK seq=N-1
+        payload = final fragment
+   N+2. SESSION_END
+        seq=N, payload = b""
+```
+
+**Application payload (the bytes inside CHUNK packets) is the binary
+TLV-encoded submission:**
+
+```
+   ┌────────────────────────────────────────────────────────────┐
+   │  Submission envelope (10 B)                                │
+   │    magic         4 B   "DSUB"                              │
+   │    version       1 B   0x01                                │
+   │    reserved      3 B                                       │
+   │    field_count   2 B   uint16                              │
+   ├────────────────────────────────────────────────────────────┤
+   │  Field records (one TLV per top-level field, repeated)     │
+   │    For each field:                                         │
+   │      tag         1 B   field tag                           │
+   │      length      2 B   uint16                              │
+   │      value       N B                                       │
+   │                                                            │
+   │  Top-level tags:                                           │
+   │    0x01 drone_id              utf-8 string                 │
+   │    0x02 timestamp             utf-8 string                 │
+   │    0x03 mission_id            utf-8 string  (optional)     │
+   │    0x04 mission_zone          utf-8 string  (optional)     │
+   │    0x05 geo                   24 B (3 × float64)           │
+   │    0x06 telemetry             40 B fixed substruct         │
+   │    0x07 signature             utf-8 string  (optional)     │
+   │    0x08 firmware_version      utf-8 string  (optional)     │
+   │    0x09 operator_id           utf-8 string  (optional)     │
+   │    0x0A additional_metadata   TLV substream of kv pairs    │
+   │    0x0B payload               TLV substream (per payload)  │
+   │                                                            │
+   │  Payload substream tags:                                   │
+   │    0x01 type        1 B enum (1=video..5=text)             │
+   │    0x02 filename    utf-8 string                           │
+   │    0x03 mime        utf-8 string                           │
+   │    0x04 size_bytes  8 B uint64                             │
+   │    0x05 encryption  1 B bool                               │
+   │    0x06 container   1 B bool                               │
+   │    0x07 checksum    utf-8 string  (optional)               │
+   │    0x08 uri         utf-8 string  (optional)               │
+   └────────────────────────────────────────────────────────────┘
+```
+
+A typical drone submission with one image payload and full metadata
+serializes to ~250-300 bytes and fits in a single CHUNK (4 packets total
+including START and END).
+
 ### 9.5 Downstream Interface: Game-Theoretic Threat Estimator
 
 The Game-Theoretic Threat Estimator consumes `IngestResult` and computes:
@@ -1517,7 +1906,23 @@ Output:
 | Geolocation sanity bounds      | Reject lat/lon/alt outside physical ranges               | Spoofed location data                        |
 | Telemetry anomaly detection    | Flag impossible values (negative speed, >100% battery)   | Compromised drone telemetry                  |
 
-### 10.6 Operational Security
+### 10.6 Stage 0 — Wire-layer Defenses
+
+| Defence                          | Implementation                                              | Threat Mitigated                                         |
+|----------------------------------|-------------------------------------------------------------|----------------------------------------------------------|
+| Magic-byte verification          | Reject packets without `0x52504144` ("RPAD") header         | Random scanner traffic, protocol confusion               |
+| Version check                    | Reject packets whose version byte is not the codec version  | Protocol downgrade attack indicators                     |
+| Per-packet HMAC-SHA256           | Constant-time HMAC verify against per-drone shared secret   | Wire tampering, MITM injection                            |
+| Per-session monotonic sequence   | Reject duplicate `seq` within an active session             | Pcap replay attacks                                       |
+| Reassembly timeout (30s default) | Periodic janitor drops half-open sessions                   | Slow-loris-style memory exhaustion, half-open flooding    |
+| Max chunks per session (256)     | SESSION_START with `total_chunks` over the cap is dropped   | Memory exhaustion via bloated session declaration         |
+| Max concurrent sessions per drone (100) | Reject SESSION_START when the per-drone count exceeds the cap | Session flooding                                  |
+| Max payload_len per packet (1024)| Reject packets whose declared payload length exceeds limit  | Header lying about chunk size, oversized buffers          |
+| Sequence-gap detection           | `assemble()` raises if any expected `seq` is missing        | Truncation attacks; benign packet loss surfaced as event  |
+| Decode failure isolation         | Malformed reassembled bytes counted, never escape callback  | Corrupted/intentionally malformed submissions             |
+| Orphaned-packet classification   | CHUNK without a known session counted separately            | Distinguishes benign packet loss from session-id guessing |
+
+### 10.7 Operational Security
 
 | Defence                        | Implementation                                           | Threat Mitigated                            |
 |--------------------------------|----------------------------------------------------------|---------------------------------------------|
@@ -1563,6 +1968,14 @@ Output:
 | `uplink_enabled`              | `bool`  | `False`                    | Enable uplink command receiver                                 |
 | `uplink_endpoint`             | `str`   | `""`                       | Endpoint URL for uplink communication (gRPC/MQTT)              |
 | `uplink_poll_interval_seconds`| `float` | `10.0`                     | Polling interval for file-based uplink mode                    |
+| **Stage 0: Packet Listener**  |         |                            |                                                                |
+| `packet_listener_host`        | `str`   | `"0.0.0.0"`                | UDP bind host                                                  |
+| `packet_listener_port`        | `int`   | `5005`                     | UDP bind port (use `0` for OS-assigned ephemeral)              |
+| `packet_max_session_chunks`   | `int`   | `256`                      | Bound on `total_chunks` in SESSION_START (memory cap)          |
+| `packet_max_concurrent_sessions` | `int`| `100`                      | Per-drone concurrent session cap (DoS bound)                   |
+| `packet_session_timeout_seconds` | `float`| `30.0`                    | Reassembly timeout; expired sessions are GC'd                  |
+| `packet_hmac_required`        | `bool`  | `True`                     | Reject packets without a valid HMAC tag                        |
+| `packet_replay_window_seconds`| `float` | `60.0`                     | Reserved for future cross-session replay protection            |
 
 ### 11.2 Default Allowed MIME Types
 
@@ -1618,6 +2031,11 @@ These requirements are derived from the BEL project proposal (Sections 4.2,
 | FR-18 | Pre-sanitize metadata to strip prototype injection vectors                             | 4.2.3    | Implemented |
 | FR-19 | Detect telemetry anomalies (negative speed, invalid battery, etc.)                     | 4.2.1    | Implemented |
 | FR-20 | Support batch processing of multiple submissions                                       | 5.1      | Implemented |
+| FR-21 | Receive wire-level UDP packets from drone platforms (Stage 0)                          | 4.2.5    | Implemented |
+| FR-22 | Verify per-packet HMAC-SHA256 against the per-drone shared key                         | 4.2.1    | Implemented |
+| FR-23 | Reassemble fragmented submissions and decode the binary TLV payload                    | 4.2.2    | Implemented |
+| FR-24 | Detect packet replay via per-session monotonic sequence numbers                        | 4.2.5    | Implemented |
+| FR-25 | Bound memory and concurrency: max chunks/session, max sessions/drone, session timeout  | 4.2.5    | Implemented |
 
 ### 12.2 Non-Functional Requirements
 
@@ -1673,29 +2091,32 @@ These requirements are derived from the BEL project proposal (Sections 4.2,
 
 ### 14.1 Runtime Dependencies
 
-| Dependency       | Version  | Source          | Purpose                                        |
-|------------------|----------|-----------------|------------------------------------------------|
-| Python           | >= 3.9   | Standard        | Runtime environment                            |
-| `dataclasses`    | built-in | Standard Library| Typed data model definitions                   |
-| `hashlib`        | built-in | Standard Library| SHA-256, SHA-1, SHA-512, MD5 hash computation  |
-| `hmac`           | built-in | Standard Library| HMAC-SHA256 signature verification             |
-| `json`           | built-in | Standard Library| JSON serialization/deserialization              |
-| `uuid`           | built-in | Standard Library| Unique identifier generation                   |
-| `logging`        | built-in | Standard Library| Structured event logging                       |
-| `datetime`       | built-in | Standard Library| Timestamp parsing and generation               |
-| `os`             | built-in | Standard Library| File path resolution                           |
-| `time`           | built-in | Standard Library| Performance timing, command timestamps         |
-| `enum`           | built-in | Standard Library| CommandType enumeration                        |
+| Dependency       | Version  | Source          | Purpose                                                |
+|------------------|----------|-----------------|--------------------------------------------------------|
+| Python           | >= 3.9   | Standard        | Runtime environment                                    |
+| `dataclasses`    | built-in | Standard Library| Typed data model definitions                           |
+| `hashlib`        | built-in | Standard Library| SHA-256, SHA-1, SHA-512, MD5 hash computation          |
+| `hmac`           | built-in | Standard Library| HMAC-SHA256 signature & per-packet verification        |
+| `json`           | built-in | Standard Library| In-process serialization (legacy entry point only)     |
+| `uuid`           | built-in | Standard Library| Unique identifier generation                           |
+| `logging`        | built-in | Standard Library| Structured event logging                               |
+| `datetime`       | built-in | Standard Library| Timestamp parsing and generation                       |
+| `os`             | built-in | Standard Library| File path resolution                                   |
+| `time`           | built-in | Standard Library| Performance timing, GC scheduling, command timestamps  |
+| `enum`           | built-in | Standard Library| CommandType / PacketType enumerations                  |
+| `socket`         | built-in | Standard Library| Stage 0: UDP packet listener                           |
+| `struct`         | built-in | Standard Library| Stage 0: binary packet header pack/unpack              |
+| `threading`      | built-in | Standard Library| Stage 0: daemon listener thread + sessions lock        |
 
 The module has **zero external dependencies**. All functionality is implemented
 using the Python standard library only.
 
 ### 14.2 Development Dependencies
 
-| Dependency       | Version  | Purpose                                        |
-|------------------|----------|------------------------------------------------|
-| `unittest`       | built-in | Test framework (31 unit tests)                 |
-| `pytest`         | >= 7.0   | Alternative test runner (optional)             |
+| Dependency       | Version  | Purpose                                              |
+|------------------|----------|------------------------------------------------------|
+| `unittest`       | built-in | Test framework (78 unit tests in this package)       |
+| `pytest`         | >= 7.0   | Alternative test runner (optional)                   |
 
 ### 14.3 Downstream Module Dependencies
 
@@ -1712,27 +2133,41 @@ using the Python standard library only.
 
 ### 15.1 Test Suite Overview
 
-The test suite contains **31 unit tests** organized across 6 test classes,
-covering all pipeline components.
+The test suite contains **78 unit tests** in the `ingestion_interceptor`
+package across 4 test files (32 in `test_interceptor.py` for the legacy
+7-stage pipeline + 13 in `test_packet_codec.py` + 14 in
+`test_submission_codec.py` + 19 in `test_packet_receiver.py` for Stage 0).
+A separate **38 unit tests** live in `drone/tests/` covering the drone
+simulator and the wire-side packet transmitter — together the project
+exercises **116 tests** before any code change ships.
 
-**Location:** `ingestion_interceptor/tests/test_interceptor.py`
+**Locations:**
+- `ingestion_interceptor/tests/test_interceptor.py`
+- `ingestion_interceptor/tests/test_packet_codec.py`
+- `ingestion_interceptor/tests/test_submission_codec.py`
+- `ingestion_interceptor/tests/test_packet_receiver.py`
 
 **Execution:**
 ```
-python -m unittest ingestion_interceptor.tests.test_interceptor -v
+python -m unittest discover -s ingestion_interceptor/tests -v
 python -m pytest ingestion_interceptor/tests/ -v
 ```
 
 ### 15.2 Test Classes and Coverage
 
-| Test Class                  | Tests | Coverage Area                                     |
-|-----------------------------|-------|---------------------------------------------------|
-| `TestValidator`             | 8     | Structure validation, missing fields, path traversal, size limits, timestamps, signature enforcement |
-| `TestPayloadAnalyzer`       | 8     | All 9 security flags, risk scoring (clean, critical), MIME mismatch, double extension |
-| `TestAuthenticator`         | 5     | Trusted/untrusted/unknown/rejected/revoked device states, policy enforcement |
-| `TestInterceptorPipeline`   | 5     | End-to-end processing (normal, suspicious, invalid), backward-compatible API, stats tracking |
-| `TestUplink`                | 2     | Command push/poll cycle, acknowledgement and deduplication |
-| `TestChecksumVerifier`      | 3     | Bytes checksum computation, file URI resolution, S3 URI handling |
+| Test Class                       | Tests | Coverage Area                                                                                       |
+|----------------------------------|-------|-----------------------------------------------------------------------------------------------------|
+| `TestValidator`                  | 8     | Structure validation, missing fields, path traversal, size limits, timestamps, signature enforcement |
+| `TestPayloadAnalyzer`            | 8     | All 9 security flags, risk scoring (clean, critical), MIME mismatch, double extension                |
+| `TestAuthenticator`              | 5     | Trusted/untrusted/unknown/rejected/revoked device states, policy enforcement                         |
+| `TestInterceptorPipeline`        | 6     | End-to-end processing (normal, suspicious, invalid), functional API, stats, telemetry-anomaly flags |
+| `TestUplink`                     | 2     | Command push/poll cycle, acknowledgement and deduplication                                          |
+| `TestChecksumVerifier`           | 3     | Bytes checksum computation, file URI resolution, S3 URI handling                                    |
+| `TestPacketCodec`                | 13    | Header round-trip, oversize/empty-key rejection, bad magic, unsupported version, truncated payload, payload-len lying, HMAC mismatch, wrong-key |
+| `TestSubmissionCodec`            | 14    | Full + minimal round-trip, geo, telemetry, payloads, additional_metadata coercion, missing fields, bad magic, truncated TLV, unicode |
+| `TestReassemblyBuffer`           | 6     | In-order, out-of-order, duplicate, missing-chunk, expiration                                        |
+| `TestPacketReceiverEndToEnd`     | 12    | Real-UDP reassembly, replay drop, HMAC mismatch, unknown drone, orphaned packets, two concurrent drones, max chunks, late SESSION_END, duplicate SESSION_START rejection, periodic GC under traffic |
+| `TestInterceptorPacketIntegration` | 1   | Drone-to-interceptor wire path via `start_packet_listener`                                          |
 
 ### 15.3 Test Data Strategy
 
@@ -1743,16 +2178,20 @@ and maintainable as the schema evolves.
 
 ### 15.4 Testing Gaps and Future Coverage
 
-| Area                              | Current State      | Planned                              |
-|-----------------------------------|--------------------|--------------------------------------|
-| HMAC signature verification       | Not directly tested| Add test with matching key/signature |
-| File-based checksum verification  | Not tested (no fixture files) | Add fixture files or mock I/O |
-| File-based uplink receiver        | Not tested         | Add JSON file fixtures               |
-| Telemetry anomaly detection       | Implicitly tested  | Add explicit anomaly assertion tests |
-| Geolocation boundary validation   | Implicitly tested  | Add explicit out-of-range tests      |
-| Metadata pre-sanitization         | Implicitly tested  | Add prototype injection test         |
-| Concurrent batch processing       | Not tested         | Add thread safety tests              |
-| Configuration edge cases          | Partial            | Add tests for extreme config values  |
+| Area                              | Current State            | Planned                                 |
+|-----------------------------------|--------------------------|-----------------------------------------|
+| HMAC signature verification       | Covered at the wire layer (`TestPacketCodec`); the application-level signature path is still unit-tested only via authenticator tests | Add an explicit application-signature roundtrip test |
+| File-based checksum verification  | Not tested (no fixture files) | Add fixture files or mock I/O      |
+| File-based uplink receiver        | Not tested               | Add JSON file fixtures                  |
+| Telemetry anomaly detection       | Covered (`test_telemetry_anomalies_become_security_flags`) | — |
+| Geolocation boundary validation   | Implicitly tested        | Add explicit out-of-range tests         |
+| Metadata pre-sanitization         | Implicitly tested        | Add prototype injection test            |
+| Concurrent batch processing       | Not tested               | Add thread safety tests                 |
+| Configuration edge cases          | Partial                  | Add tests for extreme config values     |
+| Stage 0 packet replay             | Covered (`test_replay_protection_drops_duplicate_chunk`) | — |
+| Stage 0 truncation                | Covered (`test_missing_chunk_triggers_truncation_on_session_end`) | — |
+| Stage 0 GC under load             | Covered (`test_periodic_gc_runs_under_continuous_traffic`) | — |
+| Stage 0 session-id collision       | Covered by lookup-by-scan implementation; explicit dedup test planned | Add a test forcing two drones to use the same session_id |
 
 ---
 
@@ -1807,10 +2246,19 @@ and maintainable as the schema evolves.
 
 ### 16.3 Monitoring and Observability
 
-**Built-in statistics (`stats` property):**
+**Pipeline statistics (`stats` property):**
 - `total_processed` --- submissions that completed the full pipeline
 - `total_rejected` --- submissions rejected at validation or authentication
 - `total_flagged` --- submissions with one or more security flags
+
+**Stage 0 statistics (`packet_stats` property — present once
+`start_packet_listener()` is called):**
+- `packets_received`, `packets_dropped_malformed`, `packets_dropped_hmac`,
+  `packets_dropped_unknown_drone`, `packets_dropped_replay`,
+  `packets_dropped_orphaned`, `packets_dropped_session_overflow`
+- `sessions_started`, `sessions_completed`, `sessions_expired`,
+  `sessions_truncated`
+- `submissions_decoded`, `submissions_decode_failed`
 
 **Logging:**
 - All processing events logged at INFO level with timing and flag data
@@ -1818,12 +2266,17 @@ and maintainable as the schema evolves.
 - Uplink commands logged with command type and result
 - Checksum mismatches logged at WARNING level
 - Registry load failures logged at ERROR level
+- Stage 0 packet drops logged at WARNING level (HMAC mismatch, malformed,
+  truncation, replay) or DEBUG level (orphaned packets, late SESSION_END)
 
 **Recommended production monitoring:**
-- Export `stats` to Prometheus/StatsD at regular intervals
+- Export `stats` and `packet_stats` to Prometheus/StatsD at regular intervals
 - Ship logs to ELK/Loki for centralized search
 - Alert on `total_rejected` spike (possible attack)
 - Alert on `total_flagged / total_processed` ratio exceeding threshold
+- Alert on `packets_dropped_hmac` non-zero (wire tampering / wrong-key)
+- Alert on `sessions_truncated` non-zero (truncation attack or chronic loss)
+- Alert on `packets_dropped_session_overflow` non-zero (per-drone DoS)
 
 ### 16.4 Configuration Management
 
@@ -1855,6 +2308,12 @@ implementation).
 | R-13 | Replay attack with old valid submission                  | Low        | Medium   | Timestamp validation with future-time warning; future: nonce tracking |
 | R-14 | In-memory registry lost on process restart               | Medium     | Medium   | File-backed registry mode; production: database backend      |
 | R-15 | Uplink command injection by adversary                    | Low        | Critical | Uplink channel authentication; command ID tracking           |
+| R-16 | Wire-level packet replay (pcap capture and replay)       | Medium     | High     | Per-session monotonic seq; receiver drops duplicate seq within an active session |
+| R-17 | Packet tampering / MITM injection                        | Medium     | Critical | Per-packet HMAC-SHA256 verified before any state mutation     |
+| R-18 | Half-open session flooding (start sessions, never finish)| Medium     | Medium   | Reassembly timeout + per-drone concurrent session cap         |
+| R-19 | Bloated SESSION_START with huge `total_chunks`           | Low        | Medium   | `packet_max_session_chunks` enforced at SESSION_START handling |
+| R-20 | Truncation attack (drop final chunks to suppress detection) | Medium  | High     | Sequence-gap detection at SESSION_END; `sessions_truncated` event |
+| R-21 | Session-id guessing to inject CHUNKs into another drone's session | Low | High | Each session is keyed by `(drone_id, session_id)` and CHUNKs whose drone_id is unknown to a session_id are dropped as orphaned |
 
 ---
 
@@ -1870,6 +2329,12 @@ implementation).
 | **Phase 1** | Uplink receiver and command handler | Done |
 | **Phase 1** | Main orchestrator (IngestionInterceptor class) | Done |
 | **Phase 1** | Unit test suite (31 tests) | Done |
+| **v3.0** | Stage 0: `protocol/` subpackage (packet codec + binary submission marshaller) | Done |
+| **v3.0** | Stage 0: `packet_receiver.py` (UDP listener thread, reassembly buffer, periodic GC, statistics) | Done |
+| **v3.0** | Stage 0: integration into `IngestionInterceptor` (`start_packet_listener` / `stop_packet_listener`) | Done |
+| **v3.0** | Drone-side packet transmitter and side-by-side demo | Done |
+| **v3.0** | Bug fix: telemetry anomalies promoted into `insecure_flags` | Done |
+| **v3.0** | Stage 0 unit tests (47 new tests) | Done |
 | **Phase 2** | Ed25519 asymmetric signature verification | Planned |
 | **Phase 2** | mTLS authentication for drone-to-edge communication | Planned |
 | **Phase 2** | Rate limiting per drone_id (flood attack prevention) | Planned |
@@ -1907,4 +2372,11 @@ implementation).
 | **Ingest ID**               | A unique identifier (format: `ingest_<12-hex-chars>`) assigned to each successfully processed submission |
 | **Artifact ID**             | A unique identifier (format: `artifact://<16-hex-chars>`) assigned to each cataloged payload file    |
 | **BEL**                     | Bharat Electronics Limited; the project sponsor and defence electronics manufacturer                 |
+| **TLV (Type-Length-Value)** | Binary encoding scheme where each field is preceded by a type tag and a length, allowing optional fields and forward-compatible extension |
+| **MTU (Maximum Transmission Unit)** | The largest packet size that can be transmitted over a network link without fragmentation. Stage 0 packets are sized to fit within a typical 1500-byte Ethernet MTU |
+| **Session ID**              | A random 64-bit identifier assigned by the drone for each submission; used to key the receiver's reassembly buffer |
+| **Reassembly Buffer**       | Per-session state held by the receiver while waiting for all CHUNK packets of a fragmented submission to arrive |
+| **Eager Reassembly**        | Reassembling a session as soon as all expected chunks have arrived, without waiting for the explicit SESSION_END marker |
+| **Orphaned Packet**         | A CHUNK or SESSION_END packet that arrives at the receiver with a session_id the receiver is not currently tracking; typically caused by SESSION_START being lost to network loss |
+| **Stage 0**                 | The Packet Reception & Reassembly stage that runs upstream of the original 7-stage pipeline when the wire-level UDP listener is enabled |
 | **IIT Bhubaneswar**         | Indian Institute of Technology Bhubaneswar; the research institution executing the project           |
