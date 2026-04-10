@@ -67,28 +67,28 @@ uncontrolled input from entering the analysis pipeline. Every incoming drone
 submission --- containing video, imagery, telemetry, and metadata --- passes
 through an eight-stage processing pipeline:
 
-0. **Packet Reception & Reassembly** --- receives wire-level UDP datagrams
+1. **Packet Reception & Reassembly** --- receives wire-level UDP datagrams
    from drone platforms, verifies per-packet HMAC-SHA256, reassembles
    fragmented submissions, and decodes the binary TLV payload back into a
    structured submission. This stage is optional: the interceptor still
    accepts in-process dict submissions via the legacy `process()` entry
    point for tests, demos, and the original integration path.
-1. **Structure Validation** --- verifies required fields, data types, timestamps,
+2. **Structure Validation** --- verifies required fields, data types, timestamps,
    size limits, and path traversal defences.
-2. **Device Authentication** --- verifies drone identity through a device
+3. **Device Authentication** --- verifies drone identity through a device
    registry, HMAC-SHA256 signature verification, and configurable unknown-device
    policy enforcement.
-3. **Metadata Extraction** --- extracts and normalizes mission context,
+4. **Metadata Extraction** --- extracts and normalizes mission context,
    geolocation, telemetry summaries, and additional metadata with
    pre-sanitization.
-4. **Payload Security Analysis** --- applies a 9-point security heuristic to
+5. **Payload Security Analysis** --- applies a 9-point security heuristic to
    every payload file, detecting encrypted content, nested archives, executable
    extensions, MIME mismatches, and other indicators.
-5. **Checksum Verification** --- computes and compares SHA-256 checksums to
+6. **Checksum Verification** --- computes and compares SHA-256 checksums to
    detect file tampering.
-6. **Artifact Cataloging** --- generates unique artifact identifiers, storage
+7. **Artifact Cataloging** --- generates unique artifact identifiers, storage
    pointers, and thumbnail references.
-7. **Output Assembly** --- produces a structured `IngestResult` containing
+8. **Output Assembly** --- produces a structured `IngestResult` containing
    `IngestMetadata` and `ArtifactRecord` entries.
 
 The output feeds directly into the **Game-Theoretic Threat Estimator**, which
