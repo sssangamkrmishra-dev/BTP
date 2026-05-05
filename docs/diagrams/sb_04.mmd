@@ -1,0 +1,27 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '14px'}, 'sequence': {'mirrorActors': false}}}%%
+sequenceDiagram
+    autonumber
+    participant C as Caller
+    participant A as SandboxAnalyzer
+    participant R as Router
+    participant H as ArchiveHandler
+    participant S as Scoring
+    participant TI as TIClient
+    participant V as Verdict
+    participant F as FeedbackSink
+
+    C->>A: analyze(zip, drone_id)
+    A->>R: route_file()
+    R-->>A: ARCHIVE
+    A->>H: handle_archive(zip, out, config)
+    H->>H: scan listing — double-ext detected
+    H-->>A: ArchiveResult (+30 risk)
+    A->>A: extract + per-file execute (Stages 3-4)
+    A->>S: compute_risk_score(events)
+    S-->>A: ScoreBreakdown
+    A->>TI: ThreatIntelClient.query(hash, ips, domains)
+    TI-->>A: IOCResult
+    A->>V: determine_verdict(total_score)
+    V-->>A: SUSPICIOUS / MALICIOUS
+    A->>F: dispatch feedback (3 channels)
+    A-->>C: SandboxReport

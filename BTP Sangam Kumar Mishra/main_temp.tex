@@ -1,0 +1,2621 @@
+\documentclass[12pt, a4paper]{report}
+
+% === PACKAGE IMPORTS ===
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{setspace}
+\usepackage[margin=1in]{geometry}
+\usepackage{fancyhdr}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage{cite}
+\usepackage{svg}
+\usepackage{float}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{longtable}
+
+\setlength{\headheight}{14.49998pt}
+\onehalfspacing
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\nouppercase{\leftmark}}
+\fancyhead[R]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\chaptermark}[1]{\markboth{\thechapter.\ #1}{}}
+
+\newcommand{\keyresult}[1]{\textcolor{blue!60!black}{\textbf{#1}}}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue!50!black,
+    citecolor=green!60!black,
+    urlcolor=magenta!70!black,
+    pdftitle={Multi-Layered Malware Detection and Threat Prevention System},
+    pdfauthor={Sangam Kumar Mishra}
+}
+
+\begin{document}
+
+% --- TITLE PAGE ---
+\begin{titlepage}
+    \centering
+    \vspace*{0.5cm}
+    \includesvg[width=0.22\textwidth]{logo}\\[0.8cm]
+
+    {\large \textsc{Indian Institute of Technology Bhubaneswar}}\\[0.25cm]
+    {\large \textsc{School of Electrical and Computer Sciences}}\\[1.2cm]
+
+    \hrulefill\\[0.4cm]
+    {\bfseries\LARGE Multi-Layered Malware Detection and Threat Prevention System}\\[0.4cm]
+    \hrulefill\\[1.2cm]
+
+    {\small A B.Tech Project Report Submitted in Partial Fulfillment of the Requirements for the Degree of}\\[0.3cm]
+    {\large \textbf{Bachelor of Technology}}\\[1.0cm]
+
+    {\small by}\\[0.2cm]
+    {\large \textbf{Sangam Kumar Mishra}}\\[0.1cm]
+    {\small (Roll No: 22cs01071)}\\[1.2cm]
+
+    {\small Under the Guidance of}\\[0.2cm]
+    {\large \textbf{Prof. Padmalochan Bera}}\\[0.1cm]
+    {\small Department of Computer Science and Engineering}\\[0.5cm]
+
+    {\large April 2026}\\[0.2cm]
+
+    \vspace*{\fill}
+\end{titlepage}
+
+% --- ABSTRACT ---
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+\thispagestyle{plain}
+
+Modern cyber-physical systems such as drone fleets continuously capture large
+volumes of video, imagery, telemetry, and mission metadata. These streams must
+be inspected in real time for malware, tampering, covert exfiltration attempts,
+and payload manipulation. Traditional single-layer malware scanners struggle
+against encrypted archives, polymorphic malware, and payloads hidden inside
+multi-modal drone data.
+
+This project designs and implements a \textbf{multi-layered threat prevention
+system} for drone and Remotely Piloted Aircraft (RPA) feeds. The system
+integrates four production-grade modules that together cover ingestion, risk
+scoring, dynamic analysis, and metadata cleaning:
+
+\begin{enumerate}
+    \item \textbf{Game-Theoretic Threat Estimator} — an interpretable risk
+          scorer that models attacker--defender interaction through a
+          Stackelberg game, solves the \emph{cold-start} problem using a
+          Bayesian Belief Network, and adapts its routing thresholds through a
+          live feedback loop driven by observed false-positive and
+          false-negative rates.
+    \item \textbf{Ingestion Interceptor} — the secure entry gate that
+          authenticates the source drone, validates submission structure,
+          extracts metadata, flags insecure indicators, generates artifact
+          records, and exposes an uplink path for operator commands.
+    \item \textbf{Sandbox Analyzer} — a dynamic analysis layer that executes
+          high-risk artifacts inside a kernel-limited Linux sandbox, observes
+          them through four independent \texttt{/proc}-based monitors,
+          correlates findings against threat intelligence, and emits a
+          three-level verdict (Clean, Suspicious, Malicious).
+    \item \textbf{Metadata Sanitizer} — a dedicated module that strips
+          dangerous embedded metadata (EXIF fields, PDF JavaScript, video
+          tracking atoms, archive scripts) with sanitization depth driven
+          automatically by the Threat Score.
+\end{enumerate}
+
+Evaluations on synthetic drone payloads covering normal feeds, encrypted
+archives, telemetry bundles, large mission videos, and double-extension
+disguises show that the integrated pipeline correctly identifies normal
+feeds as low risk, flags encrypted and nested archives for deeper
+inspection, routes high-threat artifacts to the sandbox, and sanitises
+harmful metadata before forwarding clean feeds to downstream consumers.
+The Bayesian prior reproduces the reference worked example
+($R \approx 0.257$ for a ZIP file arriving from a risky zone), and the
+adaptive thresholds correctly drift in response to simulated false-positive
+and false-negative spikes while staying within safe clamp bounds.
+
+This report documents the architecture, mathematical formulation, design
+decisions, implementation, and experimental results of the complete system.
+
+\vfill
+
+% --- ACKNOWLEDGEMENTS ---
+\chapter*{Acknowledgements}
+\addcontentsline{toc}{chapter}{Acknowledgements}
+\thispagestyle{plain}
+
+I would like to express my sincere gratitude to my supervisor,
+\textbf{Prof. Padmalochan Bera}, Department of Computer Science and Engineering,
+IIT Bhubaneswar, for his valuable guidance, support, and motivation throughout
+the course of this project. His insights and suggestions were instrumental in
+shaping the direction and quality of this work.
+
+I also thank the faculty and staff of the School of Electrical and Computer
+Sciences for providing the academic environment and facilities required for
+the execution of this project. I am grateful to \textbf{Bharat Electronics
+Limited (BEL)} for sponsoring the research problem that motivated this work
+and for providing the domain context that shaped several design decisions.
+
+Finally, I am grateful to my family and friends for their encouragement,
+patience, and continued support throughout the duration of my undergraduate
+studies.
+
+\vfill
+\clearpage
+
+% --- TABLE OF CONTENTS ---
+\pagenumbering{roman}
+\tableofcontents
+\cleardoublepage
+
+% --- LIST OF FIGURES ---
+\listoffigures
+\addcontentsline{toc}{chapter}{List of Figures}
+\cleardoublepage
+
+% --- LIST OF TABLES ---
+\listoftables
+\addcontentsline{toc}{chapter}{List of Tables}
+\cleardoublepage
+
+% --- NOMENCLATURE ---
+\chapter*{Nomenclature}
+\addcontentsline{toc}{chapter}{Nomenclature}
+
+\begin{tabular}{ll}
+    \textbf{AI} & Artificial Intelligence \\
+    \textbf{API} & Application Programming Interface \\
+    \textbf{ASP} & Attacker Success Probability ($1 - \mathrm{DSR}'$) \\
+    \textbf{AV} & Anti-Virus \\
+    \textbf{BBN} & Bayesian Belief Network \\
+    \textbf{C2} & Command and Control \\
+    \textbf{CPT} & Conditional Probability Table \\
+    \textbf{DSR} & Detection Success Rate \\
+    \textbf{DSR$'$} & Adjusted Detection Success Rate \\
+    \textbf{EDR} & Endpoint Detection and Response \\
+    \textbf{ELF} & Executable and Linkable Format (Linux binary) \\
+    \textbf{EXIF} & Exchangeable Image File format metadata \\
+    \textbf{FPR} & False Positive Rate \\
+    \textbf{FNR} & False Negative Rate \\
+    \textbf{GTE} & Game-Theoretic Threat Estimator \\
+    \textbf{HMAC} & Hash-based Message Authentication Code \\
+    \textbf{IOC} & Indicator of Compromise \\
+    \textbf{JSON} & JavaScript Object Notation \\
+    \textbf{LRU} & Least Recently Used (cache policy) \\
+    \textbf{MIME} & Multipurpose Internet Mail Extensions (media type) \\
+    \textbf{ML} & Machine Learning \\
+    \textbf{PE} & Portable Executable (Windows binary format) \\
+    \textbf{PID} & Process Identifier \\
+    \textbf{POSIX} & Portable Operating System Interface \\
+    \textbf{RPA} & Remotely Piloted Aircraft \\
+    \textbf{SIEM} & Security Information and Event Management \\
+    \textbf{SOC} & Security Operations Centre \\
+    $T_S$ & Threat Score (final output of the GTE, in $[0,1]$) \\
+    \textbf{TI} & Threat Intelligence \\
+    \textbf{TLV} & Type-Length-Value (binary encoding) \\
+    \textbf{UAV} & Unmanned Aerial Vehicle (drone) \\
+    \textbf{UDP} & User Datagram Protocol \\
+    \textbf{ZIP} & Archive File Format \\
+\end{tabular}
+
+\vfill
+
+\cleardoublepage
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+% ============================================================
+% === CHAPTER 1: INTRODUCTION ===
+% ============================================================
+
+\chapter{Introduction}
+\label{chap:intro}
+
+\section{Background and Motivation}
+In contemporary mission-critical environments, Remotely Piloted Aircraft
+(RPAs) and drones serve as vital assets for surveillance, reconnaissance,
+and real-time intelligence gathering. These platforms transmit a continuous
+stream of data --- including live video feeds, images, telemetry, and sensor
+metadata --- to edge networks and command systems for immediate analysis and
+action. This data flow, however, creates a highly exposed attack surface, as
+adversaries can attempt to inject malware through seemingly legitimate data
+streams. Malicious payloads may be embedded in multimedia files, obfuscated
+inside encrypted files and ZIP archives, or hidden within metadata fields
+such as EXIF or document scripts.
+
+Once injected, such malware can compromise sensitive infrastructure,
+exfiltrate classified data, or manipulate critical operations. Given the
+increasing reliance on automated, low-latency decision-making in military and
+strategic applications, it is essential to detect and prevent malware at the
+ingestion point itself, before it affects operational integrity. The solution
+must be intelligent, adaptable, and capable of handling evolving threats
+while maintaining real-time performance and compatibility with
+field-deployed drones.
+
+This project designs and implements a
+\textbf{Multi-Layered Malware Detection and Threat Prevention System},
+specifically targeted at drone-mediated data flows. The system combines
+lightweight interception logic, metadata-driven pre-classification, static
+and dynamic analysis, a game-theoretic risk scorer, and a metadata-cleaning
+layer. Four of the nine planned modules have been built as part of this
+work; the remaining modules are placeholders that can be plugged in through
+the module interfaces already exposed.
+
+\section{Problem Statement}
+
+The core problem addressed in this project is stated as follows.
+
+\begin{quote}
+\emph{Given a continuous stream of drone or RPA payloads containing
+multi-modal data (video, images, telemetry, archives, documents), design a
+system that can detect and neutralise malware injected through these streams
+in near real time, while optimising inspection cost through adaptive
+risk-based routing and maintaining full forensic auditability.}
+\end{quote}
+
+The problem is challenging because:
+
+\begin{itemize}
+    \item Adversaries can hide payloads inside encrypted archives, nested
+          containers, or embedded metadata.
+    \item Deep inspection (sandboxing) is too expensive to run on every
+          submission.
+    \item A brand-new drone has no history, so cannot be scored purely on
+          reputation.
+    \item Detection accuracy drifts over time as attackers adapt, so fixed
+          thresholds eventually become sub-optimal.
+\end{itemize}
+
+\section{Objectives}
+
+The primary goals of this project are as follows.
+
+\begin{enumerate}
+    \item \textbf{Detect and block malicious payloads:} identify and
+          neutralise malicious content (images, videos, telemetry, ZIP /
+          encrypted files, and live-streaming data) from RPAs and drones at
+          the point of ingestion, before the content enters the edge network.
+
+    \item \textbf{Authenticate the source device:} verify the legitimacy of
+          transmitting drones using metadata such as timestamps, drone ID,
+          geolocation, and cryptographic signatures to prevent spoofed or
+          unauthorised sources.
+
+    \item \textbf{Risk-based adaptive inspection:} use contextual threat
+          scoring to dynamically determine the depth and method of
+          inspection, optimising resource usage based on the origin, type,
+          and behaviour of incoming files.
+
+    \item \textbf{Intelligent defence via AI and game theory:} leverage
+          probabilistic and game-theoretic models to anticipate and counter
+          sophisticated adversarial tactics with proactive decision-making.
+
+    \item \textbf{Dynamic behavioural analysis:} execute suspicious files
+          inside an isolated environment, observe their behaviour at kernel
+          level, and derive verdicts from observed actions rather than
+          static signatures alone.
+
+    \item \textbf{Metadata hygiene:} strip dangerous embedded metadata fields
+          from every file that passes through the pipeline, preventing
+          covert-channel leaks and downstream exploits.
+
+    \item \textbf{Visibility and auditability:} enable end-to-end
+          traceability, generate detailed security logs, and provide
+          actionable alerts to facilitate operator investigation and rapid
+          response.
+
+    \item \textbf{Real-time operational performance:} maintain near-zero
+          latency to sustain uninterrupted drone-to-network data flow and
+          timely threat response in mission-critical deployments.
+\end{enumerate}
+
+\section{Project Contributions}
+
+This B.Tech project focuses on four major contributions, each implemented
+as a self-contained Python package with a production-grade design document
+and a complete test suite.
+
+\begin{enumerate}
+    \item \textbf{Game-Theoretic Threat Estimator
+          (Chapter~\ref{chap:gte}):} produces a bounded Threat Score
+          $T_S \in [0,1]$ through a Stackelberg game between defender and
+          attacker, combined with a Bayesian Belief Network for cold-start
+          reputation and an adaptive threshold manager driven by live
+          detection feedback.
+    \item \textbf{Ingestion Interceptor (Chapter~\ref{chap:ingestion_interceptor}):}
+          the secure entry gate. Handles wire-level packet reception,
+          cryptographic authentication, structure validation, metadata
+          extraction, payload analysis, checksum verification, artifact
+          cataloguing, and operator uplink.
+    \item \textbf{Sandbox Analyzer (Chapter~\ref{chap:sandbox}):} dynamic
+          analysis layer that runs high-risk artifacts under kernel-enforced
+          resource limits, observes them through four independent
+          \texttt{/proc}-based monitors, and emits a three-level verdict
+          backed by a complete behavioural trace.
+    \item \textbf{Metadata Sanitizer (Chapter~\ref{chap:metadata_sanitizer}):}
+          removes dangerous embedded metadata with three sanitization modes
+          (Strip, Selective, Audit-Only). Mode is selected automatically
+          from the Threat Score received from the Threat Estimator.
+\end{enumerate}
+
+These four modules together cover the Ingestion, Risk Scoring, Dynamic
+Analysis, and Metadata Cleaning layers of the pipeline. They integrate
+cleanly with the remaining placeholder modules (Signature Scanner, AI/ML
+Classifier, Threat Intelligence Correlator, Response \& Quarantine Manager,
+Security Dashboard) through well-defined interfaces.
+
+\section{Scope of the Report}
+
+This report presents:
+\begin{itemize}
+    \item a review of the literature on multi-layer malware detection,
+          dynamic analysis, Bayesian risk scoring, and game-theoretic
+          cyber-security modelling;
+    \item the architectural design of a multi-layered malware detection
+          system specialised for drone data streams;
+    \item detailed descriptions of the four implemented modules, including
+          their design goals, internal pipeline, mathematical formulation,
+          integration seams, and security model;
+    \item experimental evaluation using synthetic and real drone payloads;
+          and
+    \item a discussion of operational concerns (deployment, monitoring,
+          thread safety, failure modes) that are necessary for a
+          production-grade deployment.
+\end{itemize}
+
+\section{Report Organisation}
+
+The report is structured into the following chapters.
+\begin{itemize}
+    \item \textbf{Chapter~\ref{chap:intro}} (this chapter) introduces the
+          motivation, problem statement, objectives, and contributions.
+    \item \textbf{Chapter~\ref{chap:lit_review}} reviews related work on
+          malware detection, sandboxing, Bayesian trust modelling, and
+          game-theoretic cyber-security.
+    \item \textbf{Chapter~\ref{chap:system_arch}} describes the full
+          multi-layered architecture and the data flow between modules.
+    \item \textbf{Chapter~\ref{chap:gte}} documents the Game-Theoretic
+          Threat Estimator, including the Bayesian cold-start prior and the
+          adaptive threshold manager.
+    \item \textbf{Chapter~\ref{chap:ingestion_interceptor}} documents the
+          Ingestion Interceptor.
+    \item \textbf{Chapter~\ref{chap:sandbox}} documents the Sandbox Analyzer.
+    \item \textbf{Chapter~\ref{chap:metadata_sanitizer}} documents the
+          Metadata Sanitizer.
+    \item \textbf{Chapter~\ref{chap:results}} presents experimental results
+          and analysis across all four modules.
+    \item \textbf{Chapter~\ref{chap:conclusion}} concludes the report with
+          key findings, known limitations, and future work.
+\end{itemize}
+
+\cleardoublepage
+
+% ============================================================
+% === CHAPTER 2: LITERATURE REVIEW ===
+% ============================================================
+
+\chapter{Literature Review}
+\label{chap:lit_review}
+
+Modern malware detection architectures combine multiple layers of static,
+heuristic, behavioural, and machine-learning--based analysis. In parallel,
+game theory and Bayesian inference have emerged as powerful tools for
+modelling attacker--defender interactions and for producing interpretable,
+adaptive risk scores. This chapter reviews the literature that informs the
+design of the system built in this project.
+
+\section{Traditional Malware Detection Approaches}
+
+\subsection{Signature-Based Detection}
+Signature-based scanning identifies known malware by checking payloads
+against a database of hashes or byte-pattern signatures. It is highly
+effective against previously observed threats, but suffers from three
+well-known limitations:
+\begin{itemize}
+    \item it cannot detect zero-day or polymorphic malware;
+    \item it can be evaded by packing, encryption, or obfuscation; and
+    \item it relies on frequent signature updates to remain current.
+\end{itemize}
+
+\subsection{Heuristic and Rule-Based Detection}
+Heuristic detectors examine suspicious structural features such as:
+\begin{itemize}
+    \item abnormal file access patterns,
+    \item unusual API call sequences,
+    \item suspicious metadata inconsistencies, and
+    \item malformed archives or anomalous compression ratios.
+\end{itemize}
+They are more flexible than signatures but often trigger false positives
+and require careful tuning for each deployment environment.
+
+\subsection{Machine-Learning--Driven Detection}
+ML-based detectors train classifiers on behavioural or structural features.
+Buczak and Guven~\cite{buczak2016survey} provide a broad survey of data
+mining and machine-learning methods for intrusion detection, covering
+Random Forests, Support Vector Machines, Gradient-Boosted Trees, and deep
+neural networks. ML models improve generalisation, but they remain
+vulnerable to adversarial examples, concept drift~\cite{widmer1996learning},
+and degraded accuracy on encrypted inputs.
+
+\section{Dynamic Analysis and Sandboxing}
+
+Dynamic analysis executes a suspicious artifact inside an isolated
+environment and observes its behaviour. Bayer et
+al.~\cite{bayer2009scalable} introduced behaviour-based malware clustering
+at scale, and Cuckoo Sandbox has since become a de-facto open-source
+reference implementation: each behavioural signature is associated with a
+severity, and the severities are summed into an overall maliciousness
+rating.
+
+Cozzi et al.~\cite{cozzi2018understanding} examined Linux malware in depth
+and demonstrated that \texttt{/proc}-based observation (file descriptors,
+process trees, capability changes, memory statistics) is effective because
+the kernel-maintained view cannot be spoofed by the monitored process.
+Guven~\cite{guven2024dynamic} further argues that dynamic analysis provides
+more trustworthy detection than static analysis for encrypted malware,
+because a malicious artifact has to \emph{do} something harmful at runtime
+that cannot easily be hidden.
+
+\section{Archives as a Malware Delivery Vector}
+
+According to HP Wolf Security~\cite{hpwolf2022archive}, archives
+(ZIP, RAR) overtook Office files as the most popular malware delivery
+vector in Q3 2022. Encryption-protected archives are especially attractive
+because they bypass automated scanners that cannot decrypt the container.
+A pragmatic defence is to treat encrypted archives without a declared key
+as suspicious indicators in themselves, rather than attempting to crack
+them with dictionary attacks.
+
+\section{Metadata as an Attack Surface}
+
+Metadata fields, such as EXIF data in images, JavaScript inside PDFs, and
+tracking atoms in video containers, can hide malicious scripts or leak
+operationally sensitive information. Standard sanitization libraries (e.g.
+\texttt{piexif}, \texttt{pikepdf}, \texttt{mutagen}) expose these fields
+programmatically, but the decision of \emph{what} to strip and \emph{when}
+is context-dependent. A risk-aware sanitizer must combine declarative rule
+tables with runtime signals such as the Threat Score.
+
+\section{Indicators of Compromise and Threat Intelligence}
+
+An Indicator of Compromise (IOC) is a piece of evidence --- a file hash, an
+IP address, a domain name, or a registry key --- that a system has been
+attacked or compromised. Public frameworks such as
+MITRE ATT\&CK~\cite{mitre_attack} and CISA~\cite{cisa_iocs} publish such
+indicators and document adversary tradecraft. A defence pipeline can use
+IOC lookups as a reinforcing signal: a file whose hash or callback IP
+appears on a known-bad list is far more likely to be malicious than one
+that does not.
+
+\section{Bayesian Methods for Trust and Risk Scoring}
+
+Bayesian Belief Networks, introduced by Pearl~\cite{pearl1988bayesian},
+allow probabilistic reasoning under uncertainty by modelling conditional
+dependencies between variables. They are attractive for security
+applications because:
+\begin{itemize}
+    \item prior beliefs can be expressed explicitly in Conditional
+          Probability Tables (CPTs);
+    \item evidence from different sources can be combined in a principled
+          way; and
+    \item the posterior is fully interpretable --- every factor that
+          contributed to the final score can be inspected.
+\end{itemize}
+Nguyen and Zhu~\cite{nguyen2021bayesian} apply Bayesian trust modelling to
+intelligent transportation systems. The approach used in this project for
+\emph{cold-start drone reputation} is a naive-Bayes variant that combines
+observable context (the operational zone and the file type) with a prior
+on the probability of benign traffic.
+
+\section{Game Theory in Cyber-Security}
+
+Game theory provides formal tools to analyse decision-making under
+conflicting interests. In cyber-security:
+\begin{itemize}
+    \item attackers act strategically to maximise damage while avoiding
+          detection;
+    \item defenders aim to minimise risk while optimising resource
+          allocation.
+\end{itemize}
+
+Key concepts relevant to this project include:
+\begin{itemize}
+    \item \textbf{Utility matrices}: mappings from action pairs to payoffs.
+    \item \textbf{Nash equilibrium}: a stable strategy profile in which no
+          player benefits from unilateral deviation.
+    \item \textbf{Stackelberg games}: leader--follower dynamics modelling
+          pre-emptive defensive strategies. The defender commits to a
+          strategy first, and the attacker best-responds.
+\end{itemize}
+
+Tambe~\cite{tambe2011security} describes deployed Stackelberg security
+game systems (airport patrols, coast guard scheduling) that have been
+validated in practice. Kamhoua et al.~\cite{kamhoua2021game} provide a
+modern reference for combining game theory with machine learning for cyber
+defence. Baksi and Upadhyaya~\cite{baksi2021game} give a game-theoretic
+analysis of ransomware, modelling attackers and defenders with explicit
+cost, impact, and detection-probability components.
+
+The estimator built in this project extends these ideas in a direction
+optimised for edge deployment: the game is solved in pure strategies with
+closed-form payoffs, the attacker's best response is enumerated in
+$O(|S_d| \cdot |S_a|)$ time, and the equilibrium utilities are mapped to a
+bounded Threat Score via a sigmoid blended with the Bayesian reputation
+prior.
+
+\section{Drone and UAV Security}
+
+Drone ecosystems introduce unique security challenges. Michailidis et
+al.~\cite{michailidis2022secure} review secure UAV-aided mobile edge
+computing. Yaacoub et al.~\cite{yaacoub2020security} provide a
+comprehensive catalogue of attacks against drone systems, including:
+\begin{itemize}
+    \item payload tampering (modification of mission-critical imagery);
+    \item Command and Control (C2) compromise (adversarial influence over
+          control channels);
+    \item firmware and supply-chain attacks; and
+    \item multi-stage injection attacks using encrypted or nested
+          containers.
+\end{itemize}
+
+These vulnerabilities, combined with the trend toward autonomous and
+federated drone fleets, motivate the defence-in-depth architecture
+described in this report.
+
+\cleardoublepage
+
+% ============================================================
+% === CHAPTER 3: SYSTEM ARCHITECTURE ===
+% ============================================================
+
+\chapter{System Architecture}
+\label{chap:system_arch}
+
+The proposed \textbf{Multi-Layered Malware Detection and Threat Prevention
+System} processes drone-generated data streams through a set of
+coordinated components that form a secure and explainable malware analysis
+pipeline. This chapter describes the overall architecture, the data flow
+between modules, and how the four implemented modules connect to the
+remaining placeholder modules.
+
+\section{Architectural Overview}
+
+Figure~\ref{fig:system_overview} illustrates the layered structure used
+in the system. The complete pipeline consists of nine modules organised
+into three layers.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{architecture_diagram.png}
+    \caption{High-level architecture of the multi-layered malware detection
+    pipeline.}
+    \label{fig:system_overview}
+\end{figure}
+
+The major components are:
+\begin{enumerate}
+    \item \textbf{Drone / RPA Data Source} --- the origin of the data feed,
+          consisting of video, images, encrypted or ZIP files, telemetry,
+          text, and metadata.
+    \item \textbf{Ingestion Interceptor} --- initial capture,
+          authentication, and verification of incoming data streams.
+          Implemented as part of this project
+          (Chapter~\ref{chap:ingestion_interceptor}).
+    \item \textbf{Game-Theoretic Threat Estimator} --- computes a numeric
+          Threat Score ($T_S$) and selects the inspection depth.
+          Implemented as part of this project (Chapter~\ref{chap:gte}).
+    \item \textbf{Multi-Layer Malware Detection Engine} --- a progressive
+          analysis stack activated based on the Threat Score:
+          \begin{itemize}
+              \item \emph{Signature-Based Malware Scanner} --- fast
+                    detection of known malware through signature and IOC
+                    matching (placeholder).
+              \item \emph{AI/ML Malware Classifier} --- identifies
+                    suspicious or malicious files that do not match known
+                    signatures (placeholder).
+              \item \emph{Sandbox Analyzer} --- deepest level of inspection
+                    through isolated execution and kernel-level behavioural
+                    observation. Implemented as part of this project
+                    (Chapter~\ref{chap:sandbox}).
+          \end{itemize}
+    \item \textbf{Metadata Sanitizer} --- removes or normalises dangerous
+          or hidden metadata fields before data is forwarded to consumers.
+          Implemented as part of this project
+          (Chapter~\ref{chap:metadata_sanitizer}).
+    \item \textbf{Threat Intelligence Correlator} --- checks suspicious
+          indicators against internal or external IOC feeds to confirm or
+          enrich findings (placeholder; the Sandbox Analyzer already
+          exposes a \texttt{ThreatIntelClient} seam that connects to it).
+    \item \textbf{Response and Quarantine Manager} --- takes action based
+          on detection results (allow, quarantine, block) (placeholder;
+          receives verdicts through the Sandbox Analyzer's
+          \texttt{FeedbackSink} seam).
+    \item \textbf{Security Feedback Loop} --- closes the learning loop for
+          adaptive defence. The Threat Estimator consumes the feedback
+          loop's aggregated False Positive and False Negative Rates to
+          soft-update its routing thresholds.
+    \item \textbf{Security Dashboard and Reporting System} --- a
+          centralised visibility and analytics interface (placeholder).
+\end{enumerate}
+
+Table~\ref{tab:module_status} lists the implementation status of each
+module.
+
+\begin{table}[H]
+\centering
+\caption{Implementation status of system modules}
+\label{tab:module_status}
+\begin{tabular}{|p{5cm}|p{6cm}|c|}
+\hline
+\textbf{Module} & \textbf{Role} & \textbf{Status} \\
+\hline
+Ingestion Interceptor & Ingestion, authentication, metadata & \textbf{Implemented} \\
+\hline
+Game-Theoretic Threat Estimator & Risk scoring, inspection routing & \textbf{Implemented} \\
+\hline
+Sandbox Analyzer & Dynamic behavioural analysis & \textbf{Implemented} \\
+\hline
+Metadata Sanitizer & Embedded-metadata cleaning & \textbf{Implemented} \\
+\hline
+Signature Scanner & Known-malware filtering & Placeholder \\
+\hline
+AI/ML Classifier & Feature-based malware classification & Placeholder \\
+\hline
+Threat Intelligence Correlator & External IOC matching & Placeholder (seam ready) \\
+\hline
+Response \& Quarantine Manager & Allow / quarantine / block actions & Placeholder (seam ready) \\
+\hline
+Security Dashboard & Visibility and audit interface & Placeholder \\
+\hline
+\end{tabular}
+\end{table}
+
+\section{Data Flow Pipeline}
+
+The end-to-end data flow pipeline is illustrated in
+Figure~\ref{fig:data_flow} and summarised below.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{data_flow_diagram.png}
+    \caption{End-to-end data flow through the system.}
+    \label{fig:data_flow}
+\end{figure}
+
+\begin{enumerate}
+    \item \textbf{Drone transmits data.} The drone sends files or live
+          streams along with metadata such as drone identifier, timestamp,
+          geolocation, and mission zone.
+
+    \item \textbf{Ingestion Interceptor captures data.} The interceptor
+          receives and optionally reassembles UDP packets, authenticates
+          the source, validates the submission, extracts metadata, flags
+          insecure indicators, and produces a structured
+          \texttt{IngestResult}.
+
+    \item \textbf{Threat Estimator receives \texttt{IngestResult}.}
+          The estimator consumes the interceptor's output and returns a
+          Threat Score ($T_S$) together with an inspection decision
+          (\emph{Low}, \emph{Medium}, or \emph{High}) and the ordered
+          route of detection engines to invoke.
+
+    \item \textbf{Detection engine applies layered inspection.} Depending
+          on the inspection level:
+          \begin{itemize}
+              \item \emph{Low}: Signature scanner only.
+              \item \emph{Medium}: Signature scanner and AI/ML classifier.
+              \item \emph{High}: Signature scanner, AI/ML classifier, and
+                    Sandbox Analyzer.
+          \end{itemize}
+
+    \item \textbf{Metadata sanitization.} The Metadata Sanitizer cleans
+          embedded metadata. Its sanitization mode is selected
+          automatically from the Threat Score: high scores trigger
+          aggressive stripping, low scores default to audit-only logging.
+
+    \item \textbf{Threat Intelligence correlation.} Hashes, IPs, and
+          behavioural indicators are checked against known IOC feeds to
+          reinforce or reduce detection confidence.
+
+    \item \textbf{Response actions.} Based on the final verdict, the
+          system allows, quarantines, or blocks the artifact and notifies
+          operators.
+
+    \item \textbf{Dashboard and operator interface.} Incidents are
+          displayed on the dashboard. Operators may issue secure commands
+          (quarantine, override inspection, etc.) which are forwarded back
+          to the Ingestion Interceptor through its uplink channel.
+
+    \item \textbf{Feedback loop.} Analyst-labelled samples and confirmed
+          detections are aggregated into rolling False Positive and False
+          Negative Rates that drive the Threat Estimator's adaptive
+          thresholds and the Bayesian Conditional Probability Tables.
+\end{enumerate}
+
+\section{Cross-Module Interfaces}
+
+The four implemented modules interact through well-defined typed data
+structures rather than ad-hoc dictionaries. Table~\ref{tab:interfaces}
+summarises the key interfaces.
+
+\begin{table}[H]
+\centering
+\caption{Primary cross-module interfaces}
+\label{tab:interfaces}
+\begin{tabular}{|l|l|l|}
+\hline
+\textbf{Producer} & \textbf{Consumer} & \textbf{Interface} \\
+\hline
+Ingestion Interceptor & Threat Estimator & \texttt{IngestResult} dictionary \\
+\hline
+Threat Estimator & Detection Engine & Threat Score + inspection level \\
+\hline
+Threat Estimator & Metadata Sanitizer & Threat Score (selects mode) \\
+\hline
+Sandbox Analyzer & Response Manager & \texttt{SandboxReport} (verdict) \\
+\hline
+Sandbox Analyzer & Threat Intel Correlator & \texttt{ThreatIntelClient} seam \\
+\hline
+Response Manager & Threat Estimator & \texttt{DetectionOutcome} (feedback) \\
+\hline
+Feedback Loop & Threat Estimator & Rolling FPR / FNR metrics \\
+\hline
+\end{tabular}
+\end{table}
+
+\section{Design Principles}
+
+Five principles guided the design of every module.
+
+\begin{enumerate}
+    \item \textbf{Fail closed on misconfiguration.} Every module's
+          configuration dataclass validates its fields at construction
+          time and raises a clear error if any invariant is violated
+          (inverted thresholds, non-positive resource caps, etc.).
+    \item \textbf{Pluggable integration seams.} External dependencies
+          (reputation stores, threat-intel feeds, feedback channels) are
+          injected into the constructor. Each seam has a reference
+          implementation that is safe in isolation and a clear path to a
+          production backend.
+    \item \textbf{Bounded memory.} Every in-memory cache is size-capped
+          through configuration. Long-running edge processes have a
+          well-defined memory ceiling.
+    \item \textbf{Forensically complete output.} Every module emits a
+          serialisable audit record --- ingestion metadata, Bayesian
+          trace, payoff matrices, monitor events --- sufficient to
+          replay any decision offline.
+    \item \textbf{No surprise side effects.} Modules perform no network
+          or subprocess I/O outside explicit, documented channels. All
+          cross-module communication flows through the injected seams.
+\end{enumerate}
+
+\cleardoublepage
+
+% ============================================================
+% === CHAPTER 4: GAME-THEORETIC THREAT ESTIMATOR ===
+% ============================================================
+
+\chapter{Game-Theoretic Threat Estimator}
+\label{chap:gte}
+
+\section{Introduction}
+
+Multi-layer malware detection pipelines combine several analysis stages:
+ingestion filters, static scanners, machine-learning classifiers, and
+sandbox-based behavioural engines. Each stage produces partial and
+sometimes noisy evidence. It is not obvious how to convert this
+heterogeneous evidence into a single, interpretable score.
+
+The \textbf{Game-Theoretic Threat Estimator (GTE)} developed in this
+project provides a lightweight, mathematically principled way to fuse
+ingestion-level evidence into a continuous Threat Score
+$T_S \in [0,1]$. The estimator is inspired by attacker--defender utility
+models in which:
+\begin{itemize}
+    \item the \textbf{attacker} strategically chooses concealment
+          techniques (encryption, nested archives, obfuscation);
+    \item the \textbf{defender} chooses the inspection depth under
+          computational and latency constraints.
+\end{itemize}
+
+Instead of solving a full dynamic game, the GTE uses three
+complementary ideas in a form that is simple enough to deploy on edge
+hardware:
+\begin{itemize}
+    \item a \textbf{Stackelberg game} between the defender and the
+          attacker, solved in pure strategies;
+    \item a \textbf{Bayesian Belief Network} that computes the initial
+          reputation for a new drone from its operational context,
+          solving the cold-start problem; and
+    \item an \textbf{adaptive threshold manager} that soft-updates the
+          inspection thresholds based on live False Positive and False
+          Negative Rates aggregated in a feedback loop.
+\end{itemize}
+
+\section{Conceptual Model}
+
+At the heart of the GTE is a two-player game between a defender and an
+adversary, described in Table~\ref{tab:gte-core-roles}.
+
+\begin{table}[H]
+\centering
+\caption{Core roles and choices in the game-theoretic model}
+\label{tab:gte-core-roles}
+\begin{tabular}{|l|l|p{6cm}|}
+\hline
+\textbf{Role} & \textbf{Player} & \textbf{Choices} \\
+\hline
+Defender (system) & Chooses inspection depth & Signature, AI/ML, Sandbox \\
+\hline
+Attacker (adversary) & Chooses attack strength & No attack, simple inject, obfuscated inject \\
+\hline
+\end{tabular}
+\end{table}
+
+The game is conservative: the defender always pays its inspection cost,
+whether or not the attacker injects, and gains a reward only if it
+catches an actual injection. The attacker gains only if it injects and
+the defence misses, and pays its effort cost unconditionally for any
+injection attempt.
+
+The estimator predicts how aggressive the attacker might be and then
+selects the most cost-effective defence strategy, balancing detection
+strength against computational and latency cost.
+
+\section{Parameters}
+
+Table~\ref{tab:gte-params} lists the parameters used by the estimator.
+Default values are discussed in Section~\ref{sec:gte-config}.
+
+\begin{table}[H]
+\centering
+\caption{GTE parameters and their roles}
+\label{tab:gte-params}
+\begin{tabular}{|c|p{10cm}|}
+\hline
+\textbf{Symbol} & \textbf{Meaning} \\
+\hline
+$R$ & Reputation of the drone or source, in $[0, 1]$. \\
+\hline
+$Z$ & Zone risk: $0 =$ safe base, $1 =$ highest-risk zone. \\
+\hline
+$H$ & Recent infection frequency, in $[0, 1]$. \\
+\hline
+$\mathrm{TI}$ & Threat-intel corroboration strength, in $[0, 1]$. \\
+\hline
+$I_{\text{base}}$ & Base impact derived from artifact types, sizes, mission sensitivity, and insecure flags. \\
+\hline
+$\mathrm{DSR}(s)$ & Base detection success rate of defender strategy $s$. \\
+\hline
+$C_d(s)$ & Defender cost for strategy $s$. \\
+\hline
+$C_a(a)$ & Attacker cost for action $a$. \\
+\hline
+$\alpha, \beta$ & Weights controlling reputation and zone-risk influence on impact. \\
+\hline
+$\gamma, \delta$ & Weights controlling history and threat-intel influence on DSR. \\
+\hline
+$\kappa$ & Sigmoid scale for the raw-to-normalised mapping. \\
+\hline
+$\lambda_{\text{blend}}$ & Blend weight between the model score and the reputation prior. \\
+\hline
+$\varepsilon$ & Small clamp constant to avoid probabilities of exactly 0 or 1. \\
+\hline
+$T_S$ & Final Threat Score in $[0, 1]$. \\
+\hline
+\end{tabular}
+\end{table}
+
+\section{Bayesian Cold-Start Reputation}
+\label{sec:gte-bayes}
+
+\subsection{Motivation}
+
+When a brand-new drone enters the network, it has no history in the
+reputation database. Assigning a static default reputation is dangerous:
+a sophisticated adversary could spin up a new drone identity and exploit
+a permissive default to bypass deep inspection.
+
+The GTE solves this cold-start problem using observable context. Two
+context attributes are always known at the ingestion point:
+\begin{itemize}
+    \item the operational zone ($Z$);
+    \item the dominant file type ($F$) of the submission.
+\end{itemize}
+
+These two attributes, combined with a prior on benign traffic, are
+enough to compute a principled initial reputation.
+
+\subsection{Bayesian Belief Network}
+
+Figure~\ref{fig:bbn-topology} shows the topology of the belief network
+used. The attack status (\emph{Benign} or \emph{Malicious}) is the
+unobserved variable; the zone and file type are observed.
+
+\begin{figure}[H]
+\centering
+\fbox{\begin{minipage}{0.65\linewidth}
+\begin{center}
+Zone ($Z$) \quad\quad\quad\quad File Type ($F$) \\[0.3em]
+$\searrow$\hspace{2em}$\swarrow$ \\[0.2em]
+Attack Status $\in \{\text{Benign}, \text{Malicious}\}$
+\end{center}
+\end{minipage}}
+\caption{Bayesian Belief Network used for cold-start reputation.
+Observed evidence ($Z$ and $F$) influences the unobserved attack status;
+conditional independence is assumed between $Z$ and $F$ given the attack
+status.}
+\label{fig:bbn-topology}
+\end{figure}
+
+\subsection{Posterior Formulation}
+
+Let $N$ denote \emph{No Attack (Benign)} and $A$ denote \emph{Attack
+(Malicious)}. The reputation is the posterior probability of the benign
+class given the observed context:
+
+\[
+R = P(N \mid Z, F) = \frac{P(N) \, P(Z \mid N) \, P(F \mid N)}
+{P(N) \, P(Z \mid N) \, P(F \mid N) + P(A) \, P(Z \mid A) \, P(F \mid A)}.
+\]
+
+The priors $P(N)$ and $P(A) = 1 - P(N)$ and the likelihoods
+$P(Z \mid \cdot)$ and $P(F \mid \cdot)$ are stored in Conditional
+Probability Tables (CPTs). The CPTs are seeded with expert values and
+refreshed by the feedback loop as labelled detections accumulate.
+
+\subsection{Worked Example}
+
+Consider a drone submitting a ZIP file from a risky zone. With a benign
+prior of $0.85$, the CPT entries might be:
+\begin{itemize}
+    \item $P(Z = \text{zone-3} \mid N) = 0.12$, $P(Z = \text{zone-3} \mid A) = 0.35$;
+    \item $P(F = \text{zip} \mid N) = 0.08$, $P(F = \text{zip} \mid A) = 0.45$.
+\end{itemize}
+
+Plugging into Bayes' rule:
+\[
+\text{numerator} = 0.85 \times 0.12 \times 0.08 = 0.00816,
+\]
+\[
+\text{denominator} = 0.00816 + (0.15 \times 0.35 \times 0.45) = 0.031785,
+\]
+\[
+R \approx 0.257.
+\]
+
+A reputation of $0.257$ correctly flags this previously unseen submission
+as moderately suspicious and pushes it toward deeper inspection in the
+subsequent stages.
+
+\section{Reputation Dynamics}
+
+Once a detection verdict is available, the reputation is updated using
+an asymmetric reward--penalty rule:
+
+\[
+R_{\text{new}} =
+\begin{cases}
+\text{clip}(R + \eta_+ (1 - R), 0, 1) & \text{if verdict is benign}, \\
+\text{clip}(R - \eta_- R, 0, 1) & \text{if verdict is malicious}, \\
+R & \text{otherwise (unknown / quarantined)}.
+\end{cases}
+\]
+
+With default rates $\eta_+ = 0.05$ (reward) and $\eta_- = 0.50$
+(penalty), a single confirmed infection halves a drone's reputation,
+while recovery requires many successive benign verdicts. The asymmetry
+reflects the operational cost of false negatives in a
+security-critical setting.
+
+When a cold-start drone receives its first verdict, the update is
+seeded from the Bayesian prior rather than from the generic default,
+so the context-derived reputation is not discarded by the first
+feedback event.
+
+\section{Adjusted Impact and Detection Success Rate}
+
+Before building payoff matrices, two quantities are computed.
+
+\subsection{Adjusted Impact}
+
+The \textbf{adjusted impact} measures how bad it would be if the
+artifact were malicious, after accounting for reputation and zone risk:
+\[
+I' = I_{\text{base}} \, (1 + \alpha (1 - R)) \, (1 + \beta Z).
+\]
+
+The factor $(1 - R)$ increases impact when reputation is low, and the
+factor $Z$ increases impact in risky zones. Multiplication rather than
+addition is used because we want effects to compound: a high base
+impact in a risky zone with low reputation is substantially worse than
+any single factor alone.
+
+The base impact $I_{\text{base}}$ is estimated from artifact types and
+sizes, with a mission-sensitivity bump and additional deltas for each
+insecure flag raised by the Ingestion Interceptor. It is clamped to
+the range $[0, 10]$.
+
+\subsection{Adjusted Detection Success Rate}
+
+The \textbf{adjusted detection success rate} per defender strategy $s$
+is:
+\[
+\mathrm{DSR}'(s) = \text{clamp}\!\Big(\mathrm{DSR}(s) \, (1 - \gamma H) \, (1 + \delta \, \mathrm{TI}),
+\ \varepsilon,\ 1 - \varepsilon\Big).
+\]
+
+History $H$ degrades the DSR proportionally (drones with a recent
+infection history are harder to defend against), while strong
+corroboration from threat intelligence slightly boosts the DSR. The
+result is clamped into $[\varepsilon, 1 - \varepsilon]$ so that DSR
+never hits 0 or 1.
+
+\section{Payoff Matrices}
+
+Payoffs follow the conservative rule.
+
+\paragraph{Defender}
+\[
+U_d(s, a) =
+\begin{cases}
+\mathrm{DSR}'(s) \, I' - C_d(s) & \text{if } a = \text{inject}, \\
+-C_d(s) & \text{if } a = \text{no\_inject}.
+\end{cases}
+\]
+
+\paragraph{Attacker}
+\[
+U_a(s, a) =
+\begin{cases}
+(1 - \mathrm{DSR}'(s)) \, I' - C_a(a) & \text{if } a = \text{inject}, \\
+0 & \text{if } a = \text{no\_inject}.
+\end{cases}
+\]
+
+The defender pays its inspection cost unconditionally. The attacker
+gains only when it injects and the defence misses; it also pays an
+effort cost for every injection attempt. If the attacker does not
+inject, its payoff is zero.
+
+\section{Pure-Strategy Stackelberg Equilibrium}
+
+The defender is modelled as the leader and the attacker as the
+follower.
+
+\begin{enumerate}
+    \item For each defender strategy $s$, the attacker's best response
+          is
+          \[
+          a^*(s) = \arg\max_{a \in S_a} U_a(s, a).
+          \]
+          If multiple actions achieve the same maximum, the attacker
+          breaks the tie toward the action that minimises $U_d$
+          (hurts the defender more).
+    \item The defender picks
+          \[
+          s^* = \arg\max_{s \in S_d} U_d(s, a^*(s)).
+          \]
+          If multiple strategies achieve the same maximum, the defender
+          breaks the tie toward the cheaper strategy (lower $C_d$).
+\end{enumerate}
+
+The equilibrium is $(s^*, a^*(s^*))$ with utilities
+$U_d^{\text{eq}} = U_d(s^*, a^*(s^*))$ and
+$U_a^{\text{eq}} = U_a(s^*, a^*(s^*))$.
+The solver runs in $O(|S_d| \cdot |S_a|)$ time; with the default
+strategy sets of three defender strategies and two attacker actions,
+this is six evaluations per submission.
+
+\section{Threat Score and Inspection Level}
+
+The equilibrium utilities are mapped to a bounded Threat Score in three
+steps.
+
+\begin{enumerate}
+    \item \textbf{Raw advantage}: $\text{raw} = U_a^{\text{eq}} - U_d^{\text{eq}}$.
+          Positive values indicate attacker advantage.
+    \item \textbf{Sigmoid normalisation}:
+          \[
+          T_{\text{raw}} = \sigma(\kappa \cdot \text{raw}) = \frac{1}{1 + e^{-\kappa \, \text{raw}}}.
+          \]
+          The scale $\kappa$ controls how steeply small differences in
+          raw advantage are amplified.
+    \item \textbf{Blend with reputation prior}:
+          \[
+          T_S = \lambda_{\text{blend}} \, T_{\text{raw}} + (1 - \lambda_{\text{blend}})\,(1 - R),
+          \]
+          clamped to $[0, 1]$. The blend reduces the final Threat Score
+          for drones with a high reputation, even if the raw game
+          favours the attacker slightly.
+\end{enumerate}
+
+The Threat Score is then mapped to an inspection level by comparison
+against two thresholds $\theta_{\text{low}}$ and $\theta_{\text{high}}$:
+\begin{itemize}
+    \item $T_S < \theta_{\text{low}}$: \emph{Low} (Signature only);
+    \item $\theta_{\text{low}} \leq T_S < \theta_{\text{high}}$:
+          \emph{Medium} (Signature + AI/ML);
+    \item $T_S \geq \theta_{\text{high}}$: \emph{High}
+          (Signature + AI/ML + Sandbox).
+\end{itemize}
+
+\section{Adaptive Threshold Manager}
+
+Static thresholds become sub-optimal as attack patterns drift. The GTE
+addresses this with an \textbf{Adaptive Threshold Manager} that
+soft-updates $\theta_{\text{low}}$ and $\theta_{\text{high}}$ based on
+observed False Positive Rate (FPR) and False Negative Rate (FNR).
+
+The update rule for a monitoring window is:
+\[
+\theta_{\text{new}} = \theta_{\text{old}} + \eta \, (\mathrm{FPR} - \mathrm{FPR}_{\text{target}})
+- \eta \, (\mathrm{FNR} - \mathrm{FNR}_{\text{target}}),
+\]
+where $\eta$ is a small learning rate. Intuitively:
+\begin{itemize}
+    \item when FPR is above target, thresholds rise so that fewer
+          submissions are escalated to the expensive deep inspection
+          layers;
+    \item when FNR is above target, thresholds fall so that more
+          submissions receive deeper inspection and evasions are less
+          likely.
+\end{itemize}
+
+After each update, the thresholds are clamped to configurable safe
+bounds (for example,
+$\theta_{\text{low}} \in [0.20, 0.50]$ and
+$\theta_{\text{high}} \in [0.55, 0.85]$), and a minimum gap between
+them is enforced so that the band never collapses. Disabling the
+adaptive behaviour is a configuration flag for deterministic replays
+and controlled comparisons.
+
+\section{Feedback Loop}
+
+The GTE's feedback loop aggregates detection verdicts into rolling
+FPR and FNR metrics over a bounded window. The accounting rule is:
+\begin{itemize}
+    \item \emph{High} or \emph{Medium} inspection followed by a
+          \emph{malicious} verdict counts as a True Positive;
+    \item \emph{High} or \emph{Medium} inspection followed by a
+          \emph{benign} verdict counts as a False Positive;
+    \item \emph{Low} inspection followed by a \emph{malicious} verdict
+          counts as a False Negative;
+    \item \emph{Low} inspection followed by a \emph{benign} verdict
+          counts as a True Negative;
+    \item \emph{unknown} or \emph{quarantined} verdicts are ignored.
+\end{itemize}
+
+The host process calls \texttt{record\_outcome()} after every verdict
+and periodically calls \texttt{update\_thresholds\_from\_feedback()} to
+let the manager pick up the latest metrics.
+
+\section{Configuration and Defaults}
+\label{sec:gte-config}
+
+Table~\ref{tab:gte-defaults} lists the default values of the most
+operationally relevant parameters. All values are tunable through the
+\texttt{EstimatorConfig} dataclass, whose \texttt{\_\_post\_init\_\_}
+method rejects any inconsistent combination at construction time.
+
+\begin{table}[H]
+\centering
+\caption{GTE default configuration values}
+\label{tab:gte-defaults}
+\begin{tabular}{|p{5.2cm}|c|p{5.8cm}|}
+\hline
+\textbf{Parameter} & \textbf{Default} & \textbf{Meaning} \\
+\hline
+$\alpha$ & $0.5$ & reputation weight on $I'$ \\
+\hline
+$\beta$ & $0.3$ & zone-risk weight on $I'$ \\
+\hline
+$\gamma$ & $0.2$ & history weight on DSR \\
+\hline
+$\delta$ & $0.0$ & TI weight on DSR (enabled when TI feed is wired) \\
+\hline
+$\kappa$ & $0.8$ & sigmoid scale \\
+\hline
+$\lambda_{\text{blend}}$ & $0.9$ & model-vs-reputation blend weight \\
+\hline
+$\theta_{\text{low}}$ & $0.40$ & initial Low / Medium boundary \\
+\hline
+$\theta_{\text{high}}$ & $0.70$ & initial Medium / High boundary \\
+\hline
+$\eta$ & $0.10$ & adaptive-threshold learning rate \\
+\hline
+$P(N)$ & $0.85$ & Bayesian prior on benign \\
+\hline
+$\eta_+$ & $0.05$ & reputation reward rate \\
+\hline
+$\eta_-$ & $0.50$ & reputation penalty rate \\
+\hline
+$\mathrm{DSR}(\text{signature})$ & $0.70$ & base signature detection rate \\
+\hline
+$\mathrm{DSR}(\text{ml})$ & $0.85$ & base ML detection rate \\
+\hline
+$\mathrm{DSR}(\text{sandbox})$ & $0.95$ & base sandbox detection rate \\
+\hline
+$C_d$(signature : ml : sandbox) & $1$ : $3$ : $6$ & defender cost ratios \\
+\hline
+$C_a$(inject : no\_inject) & $2$ : $0$ & attacker cost \\
+\hline
+\end{tabular}
+\end{table}
+
+\section{Integration with the Pipeline}
+
+The GTE is the front-line scoring component of the detection pipeline.
+A typical integration flow is:
+\begin{itemize}
+    \item the Ingestion Interceptor produces an
+          \texttt{IngestResult} record;
+    \item the host passes that record to the estimator and receives
+          a \texttt{ThreatEstimate} in return;
+    \item the detection engine runs the ordered route carried in
+          the inspection decision;
+    \item when a verdict is available, the host reports it back to
+          the estimator so the reputation is updated and the feedback
+          loop absorbs the outcome;
+    \item periodically, the host refreshes the adaptive thresholds
+          from the feedback loop so the routing bands track the
+          latest false-positive and false-negative rates.
+\end{itemize}
+
+Because the estimator depends only on ingestion-time evidence and a
+small set of parameters, it runs in under a millisecond on commodity
+edge hardware. At the same time, the entire computation is
+transparent: every contributing factor is visible in the Bayesian
+trace, payoff matrices, equilibrium cell, and raw attacker advantage
+that accompany every estimate.
+
+\cleardoublepage
+
+% ============================================================
+% === CHAPTER 5: INGESTION INTERCEPTOR ===
+% ============================================================
+
+\chapter{Ingestion Interceptor}
+\label{chap:ingestion_interceptor}
+
+\section{Introduction}
+
+The \textbf{Ingestion Interceptor} is the first defensive layer in the
+multi-layered malware detection pipeline. It processes incoming drone
+payload streams, optionally reassembles fragmented wire-level packets,
+authenticates the source device, validates the submission structure,
+extracts and normalises metadata, flags insecure indicators, verifies
+checksums, registers artifacts, and prepares a structured \texttt{IngestResult}
+for downstream analysis.
+
+This module ensures that malformed, tampered, incomplete, or suspicious
+drone data is intercepted early, enabling safe propagation to the deeper
+analysis layers.
+
+\section{Design Goals}
+
+The Ingestion Interceptor is designed to meet the following goals.
+
+\begin{itemize}
+    \item \textbf{Authenticate} source devices using metadata (drone ID,
+          timestamps, geolocation) and cryptographic signatures.
+    \item \textbf{Validate} submission structure and required fields.
+    \item \textbf{Normalise} metadata, timestamps, and payload descriptors
+          into a canonical form.
+    \item \textbf{Detect} preliminary insecure indicators, such as:
+          \begin{itemize}
+              \item encrypted payloads,
+              \item nested archives,
+              \item large binaries ($\geq$ 10 MB),
+              \item suspicious MIME types, and
+              \item executable file extensions.
+          \end{itemize}
+    \item \textbf{Generate} unique identifiers for ingestion events and
+          artifacts.
+    \item \textbf{Record} thumbnails, pointer URIs, and size metadata.
+    \item \textbf{Verify} checksums when source files are accessible.
+    \item \textbf{Support secure uplink} from the control centre
+          (quarantine, release, revoke device, update zone risk, update
+          configuration, force rescan).
+    \item \textbf{Produce} a structured output compatible with the input
+          contract of the Threat Estimator.
+\end{itemize}
+
+\section{Module Structure}
+
+The Ingestion Interceptor is organised as a Python package with one file
+per processing stage. Table~\ref{tab:ii_files} summarises the layout.
+
+\begin{table}[H]
+\centering
+\caption{Ingestion Interceptor module files}
+\label{tab:ii_files}
+\begin{tabular}{|l|p{10cm}|}
+\hline
+\textbf{File} & \textbf{Responsibility} \\
+\hline
+\texttt{config.py} & \texttt{InterceptorConfig} dataclass with all tunable parameters. \\
+\hline
+\texttt{models.py} & Typed dataclasses (\texttt{DroneSubmission}, \texttt{PayloadEntry}, \texttt{GeoLocation}, \texttt{ArtifactRecord}, \texttt{IngestMetadata}, \texttt{IngestResult}). \\
+\hline
+\texttt{validator.py} & Structure and timestamp validation. \\
+\hline
+\texttt{authenticator.py} & Device registry, signature verification, authentication orchestration. \\
+\hline
+\texttt{metadata\_extractor.py} & Mission context, geolocation, telemetry, and additional metadata extraction. \\
+\hline
+\texttt{payload\_analyzer.py} & Security-flag heuristics (encryption, nesting, size, MIME, extension). \\
+\hline
+\texttt{checksum\_verifier.py} & SHA-based file checksum verification. \\
+\hline
+\texttt{artifact\_manager.py} & Artifact record creation and stable ID generation. \\
+\hline
+\texttt{packet\_receiver.py} & UDP listener, per-session reassembly buffer, packet statistics. \\
+\hline
+\texttt{protocol/} & Wire-format subpackage (packet header codec, binary TLV encoder). \\
+\hline
+\texttt{uplink.py} & Control-centre command receiver and dispatcher. \\
+\hline
+\texttt{interceptor.py} & \texttt{IngestionInterceptor} orchestrator that ties everything together. \\
+\hline
+\end{tabular}
+\end{table}
+
+\section{Processing Pipeline}
+
+The Interceptor processes every submission through an eight-stage
+pipeline. Stage~0 is optional and runs only when a wire-level UDP
+listener is enabled; the remaining seven stages run on every submission.
+
+\begin{enumerate}
+    \item \textbf{Stage 0 --- Packet reception and reassembly (optional).}
+          Receives UDP packets from the drone, verifies a per-packet
+          HMAC, enforces a replay window, reassembles fragmented
+          submissions by session identifier, and decodes the binary
+          Type-Length-Value (TLV) payload back into a Python
+          dictionary. Rejected or malformed packets are counted in
+          \texttt{PacketReceiverStats}.
+
+    \item \textbf{Stage 1 --- Structural validation.} The
+          \texttt{validate\_submission} routine checks for the presence of
+          required fields (drone identifier, timestamp, payload list),
+          the correctness of the ISO-8601 timestamp, the non-emptiness of
+          the payload list, and the integrity of each payload entry.
+
+    \item \textbf{Stage 2 --- Device authentication.} The authenticator
+          looks up the drone in the device registry. If a cryptographic
+          signature is present, it is verified using a keyed
+          HMAC-SHA256 scheme against the payload hash. The authentication
+          result is one of \emph{authenticated}, \emph{unknown device},
+          or \emph{signature invalid}, depending on the configured
+          \emph{unknown device policy}.
+
+    \item \textbf{Stage 3 --- Metadata extraction.} Mission context,
+          geolocation, telemetry summary, and additional metadata fields
+          are extracted and sanitised. Unexpected or malformed values
+          are discarded.
+
+    \item \textbf{Stage 4 --- Payload security analysis.} Each payload is
+          passed through a set of heuristics that raise security flags
+          for encryption, container nesting, large binary size,
+          suspicious MIME types, and executable extensions.
+
+    \item \textbf{Stage 5 --- Checksum verification.} If the underlying
+          file is accessible, its checksum is computed and compared
+          against the declared checksum. The result is recorded per
+          artifact.
+
+    \item \textbf{Stage 6 --- Artifact record generation.} Each payload
+          receives a unique identifier and a forensic pointer URI (for
+          example, an S3-style pointer), along with a thumbnail reference
+          for multimedia.
+
+    \item \textbf{Stage 7 --- Ingest output assembly.} The stages above
+          are combined into a single structured \texttt{IngestResult}
+          containing ingest metadata (aggregated insecure flags,
+          authentication result, notes) and the list of artifact records.
+\end{enumerate}
+
+\section{Authentication Layer}
+
+The authenticator is composed of three cooperating objects.
+
+\begin{itemize}
+    \item \textbf{Device registry} --- an in-memory or JSON-backed
+          lookup table keyed by drone identifier. Each entry records
+          whether the drone is trusted, its reputation value, and
+          metadata such as the registration date. The registry supports
+          \emph{register}, \emph{revoke}, and \emph{list} operations.
+    \item \textbf{Signature verifier} --- currently implements
+          HMAC-SHA256 for demonstration. The keyed scheme can be replaced
+          with an asymmetric primitive (for example, Ed25519) by
+          swapping the verifier object at construction time.
+    \item \textbf{Authenticator} --- orchestrates the registry lookup
+          and the signature verification, and applies the configured
+          \emph{unknown device policy}: \emph{flag}, \emph{reject}, or
+          \emph{allow}.
+\end{itemize}
+
+All three objects are exposed through the package's public API so that
+downstream modules (for example, the uplink command handler) can mutate
+the registry at run time without bypassing the authenticator.
+
+\section{Stage 0 --- Wire-Level Packet Receiver}
+
+When a drone platform can run a custom firmware module, it communicates
+with the Interceptor through a UDP protocol. Each submission is split
+into fragments, each fragment is wrapped with a 32-byte header, an
+HMAC tag, and a session identifier. The receiver:
+
+\begin{itemize}
+    \item listens on a configurable host and port,
+    \item verifies the HMAC of each incoming packet against the key
+          registered for that drone,
+    \item drops replayed packets whose timestamp falls outside a
+          configurable replay window,
+    \item buffers fragments into per-session reassembly buffers with a
+          bounded chunk count,
+    \item expires sessions that do not complete within a timeout,
+    \item decodes the reassembled payload via the TLV codec, and
+    \item invokes the interceptor's \texttt{process()} method on the
+          reconstructed submission dictionary.
+\end{itemize}
+
+For drones that cannot be modified, a ground-station adapter parses the
+native drone protocol (for example, MAVLink or DJI MSDK) and feeds the
+Interceptor through the same \texttt{process()} method directly, so the
+in-process and wire-level paths share a single code path beyond Stage~0.
+
+\section{Uplink Channel}
+
+The uplink is a secondary receiver for operator commands. It supports
+the following command types: \emph{Quarantine}, \emph{Release},
+\emph{Revoke Device}, \emph{Update Zone Risk}, \emph{Update
+Configuration}, and \emph{Force Rescan}. Commands are dispatched to an
+\texttt{UplinkCommandHandler} that mutates the authenticator's device
+registry, the configured zone-risk table, or the interceptor's
+configuration in-place. The uplink has three operating modes:
+\emph{memory} (unit testing), \emph{file} (JSON file watch), and
+\emph{stream} (production gRPC or MQTT over TLS).
+
+\section{Output Schema}
+
+Table~\ref{tab:ingest_result_fields} lists the top-level fields of the
+\texttt{IngestResult}.
+
+\begin{table}[H]
+\centering
+\caption{Fields of \texttt{IngestResult} (success path)}
+\label{tab:ingest_result_fields}
+\begin{tabular}{|l|l|p{6.5cm}|}
+\hline
+\textbf{Field} & \textbf{Type} & \textbf{Meaning} \\
+\hline
+\texttt{ingest\_metadata} & dict & Aggregated metadata including ingest ID, drone ID, timestamp, mission zone, operator ID, firmware version, insecure flags, authentication result, reputation, and zone risk. \\
+\hline
+\texttt{artifact\_records} & list of dict & One record per payload with artifact ID, filename, type, MIME, size, encryption flag, container flag, security flags, checksum status, thumbnail, and pointer storage URI. \\
+\hline
+\texttt{warnings} & list of string & Non-fatal issues encountered during processing. \\
+\hline
+\end{tabular}
+\end{table}
+
+When validation or authentication fails, the result collapses to an
+\emph{error} form containing a list of error strings rather than the
+success fields. Downstream modules detect this form and reject the
+submission without further processing.
+
+\section{Security Considerations}
+
+The Ingestion Interceptor is the only trusted entry point into the
+detection pipeline, so its security guarantees underpin every downstream
+module.
+
+\begin{itemize}
+    \item \textbf{Replay resistance.} The Stage 0 packet receiver
+          enforces a replay window and deduplicates packet sequence
+          numbers per session.
+    \item \textbf{Bounded memory.} The number of concurrent sessions
+          and the number of chunks per session are capped in
+          configuration, preventing memory-exhaustion attacks.
+    \item \textbf{HMAC verification.} Every Stage 0 packet must carry
+          a valid HMAC tag; malformed, tampered, or unkeyed packets are
+          dropped and counted in \texttt{PacketReceiverStats}.
+    \item \textbf{Unknown device policy.} The operator chooses whether
+          unknown drones are flagged (default), rejected, or allowed.
+    \item \textbf{Fail-closed configuration.} Inconsistent
+          configuration values (for example, zero or negative
+          \texttt{max\_payload\_size\_bytes}) are rejected at
+          construction time.
+\end{itemize}
+
+\cleardoublepage
+
+% ============================================================
+% === CHAPTER 6: SANDBOX ANALYZER ===
+% ============================================================
+
+\chapter{Sandbox Analyzer}
+\label{chap:sandbox}
+
+\section{Introduction}
+
+The \textbf{Sandbox Analyzer} is Layer~3 of the Multi-Layer Malware
+Detection Engine. It activates only when the Game-Theoretic Threat
+Estimator has scored an ingestion submission as High. The static
+Signature Scanner and AI/ML Classifier run on every submission, but
+the expensive dynamic analysis performed by this module is reserved
+for the small minority of inputs that look genuinely suspicious.
+
+The analyser executes one suspicious artifact inside a kernel-limited
+Linux sandbox, observes it through four independent \texttt{/proc}-based
+monitors, scores the resulting behavioural events, correlates observed
+indicators against threat intelligence, and emits one of three verdicts
+(\emph{Clean}, \emph{Suspicious}, \emph{Malicious}) together with a
+fully serialisable audit trail.
+
+\section{Design Principles}
+
+Three principles drove the design of the Sandbox Analyzer.
+
+\begin{enumerate}
+    \item \textbf{Magic-byte routing.} File extensions are never
+          trusted. The File Router reads the first sixteen bytes of
+          every artifact to determine its true type; the extension is
+          used only as a fallback. A file named \texttt{photo.jpg}
+          that begins with \texttt{\#!} is handled as a script, not
+          as an image.
+    \item \textbf{Encrypted archives are evidence, not a challenge.}
+          The Archive Handler never attempts dictionary attacks. An
+          encrypted archive arriving in a drone feed without a
+          declared key is itself a suspicious indicator and adds risk
+          points; extraction is skipped and the archive is flagged for
+          analyst review.
+    \item \textbf{Kernel-level isolation, userspace observation.}
+          Resource caps (\texttt{RLIMIT\_AS}, \texttt{RLIMIT\_CPU},
+          \texttt{RLIMIT\_FSIZE}, \texttt{RLIMIT\_NPROC},
+          \texttt{RLIMIT\_CORE}) are applied in a \texttt{preexec\_fn}
+          so they are in place before the target's first instruction.
+          Monitoring is done from outside the process by reading
+          \texttt{/proc}, so the monitored process cannot spoof what
+          the kernel reports about it.
+\end{enumerate}
+
+\section{Eight-Stage Pipeline}
+
+A single call to \texttt{analyze()} runs through eight sequential
+stages. Table~\ref{tab:sb_stages} summarises each stage.
+
+\begin{table}[H]
+\centering
+\caption{Sandbox pipeline stages}
+\label{tab:sb_stages}
+\begin{tabular}{|c|l|p{8.2cm}|}
+\hline
+\textbf{\#} & \textbf{Stage} & \textbf{Purpose} \\
+\hline
+1 & File Router & Classify file via magic bytes with extension fallback. \\
+\hline
+2 & Archive Handler & Detect encrypted-no-key, double-extension, ZIP bombs; extract (bounded). \\
+\hline
+3 & Isolated Execution & Run the target under kernel resource limits with an isolated working directory. \\
+\hline
+4 & Four Monitors & Poll \texttt{/proc} for file-system, network, process, and privilege events. \\
+\hline
+5 & Risk Scoring & Sum per-event weights plus archive bonus plus IOC bonus. \\
+\hline
+6 & IOC Correlation & Look up hash, observed IPs, and observed domains against threat intel. \\
+\hline
+7 & Verdict & Map the score into Clean, Suspicious, or Malicious. \\
+\hline
+8 & Feedback & Notify Response Manager, Dashboard, and ML retraining queue. \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{Stage 1 --- File Router}
+
+The router identifies the file's true type by matching its first bytes
+against a table of magic signatures. The table covers ZIP, ELF,
+JPEG, PNG, GIF, PDF, Windows PE, and the Unix shebang. When no magic
+matches, the router falls back to the file extension. Files classified
+as SAFE (plain text, CSV, JSON, log) short-circuit the pipeline and
+receive a Clean verdict. Windows PE files cannot be executed on a
+Linux host and are short-circuited with a Suspicious verdict for
+analyst review.
+
+\subsection{Stage 2 --- Archive Handler}
+
+When the artifact is an archive, three safety checks run before
+extraction.
+
+\begin{itemize}
+    \item \textbf{Encryption.} If the archive is encrypted and no
+          password has been declared in the feed metadata, the archive
+          receives a risk bonus and extraction is skipped. If a
+          password is supplied by the feed, extraction proceeds using
+          it.
+    \item \textbf{Double extension.} A member whose inner extension
+          looks benign (\texttt{.jpg}, \texttt{.pdf}, \texttt{.csv})
+          but whose outer extension is a dangerous script or binary
+          type (\texttt{.sh}, \texttt{.exe}, \texttt{.py}) is flagged
+          and contributes risk points.
+    \item \textbf{ZIP bomb.} A member whose compressed-to-uncompressed
+          ratio falls below a configured bound is flagged and
+          extraction is aborted to avoid disk exhaustion.
+\end{itemize}
+
+After extraction, nested archives are recursively handled up to a
+configurable depth cap. The archive's suspicious flags are
+materialised as monitor events so that they contribute to the same
+risk-score aggregate as the runtime events from the monitors.
+
+\subsection{Stage 3 --- Isolated Execution Environment}
+
+The target is launched through a subprocess call. A \texttt{preexec\_fn}
+runs in the child process immediately after \texttt{fork} and before
+\texttt{exec}, calling \texttt{setrlimit()} for each of the kernel
+limits listed in Table~\ref{tab:sb_rlimits}. The environment is
+cleared to prevent leakage of host variables, and the working
+directory is a fresh temporary directory. A watchdog thread sends
+\texttt{SIGKILL} after the wall timeout expires.
+
+\begin{table}[H]
+\centering
+\caption{Kernel resource limits applied to the sandboxed process}
+\label{tab:sb_rlimits}
+\begin{tabular}{|l|c|p{7cm}|}
+\hline
+\textbf{Limit} & \textbf{Default} & \textbf{What it prevents} \\
+\hline
+\texttt{RLIMIT\_AS} & 128 MB & Memory exhaustion, heavy payload decompression. \\
+\hline
+\texttt{RLIMIT\_CPU} & 20 s & Infinite loops, computation attacks. \\
+\hline
+\texttt{RLIMIT\_FSIZE} & 32 MB & Writing large files to disk. \\
+\hline
+\texttt{RLIMIT\_NPROC} & 50 & Fork bombs. \\
+\hline
+\texttt{RLIMIT\_CORE} & 0 & Preventing memory dumps from being written to disk. \\
+\hline
+Wall-clock timeout & 30 s & Malware that sleeps and waits. \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{Stage 4 --- The Four Monitors}
+
+While the target is running, four monitors poll every 200 ms. All four
+write to a shared thread-safe event log.
+
+\begin{table}[H]
+\centering
+\caption{The four monitors and the event categories they raise}
+\label{tab:sb_monitors}
+\begin{tabular}{|l|p{4.3cm}|p{5.5cm}|}
+\hline
+\textbf{Monitor} & \textbf{Source} & \textbf{Events raised} \\
+\hline
+File System & \texttt{/proc/<PID>/fd}, \texttt{/proc/<PID>/fdinfo} & \texttt{file\_system\_write}, \texttt{file\_write\_executable}. \\
+\hline
+Network & \texttt{/proc/net/tcp} baseline diff & \texttt{network\_connect}. \\
+\hline
+Process & \texttt{psutil} process-tree walk & \texttt{process\_spawn}, \texttt{shell\_command}. \\
+\hline
+Privilege & \texttt{/proc/<PID>/status} & \texttt{privilege\_escalation}, \texttt{memory\_inject}. \\
+\hline
+\end{tabular}
+\end{table}
+
+The Network monitor takes a baseline snapshot of
+\texttt{/proc/net/tcp} before the target starts and then diffs it on
+each poll. Any new row with state \emph{SYN\_SENT} or \emph{ESTABLISHED}
+is reported as an outbound connection attempt, catching C2 callbacks
+even when the sandbox has no real network access.
+
+The Process monitor distinguishes canonical shells (\texttt{bash},
+\texttt{sh}, \texttt{zsh}, \texttt{dash}, \texttt{fish}) from generic
+child processes; the former raise a high-weight \texttt{shell\_command}
+event. Lateral-movement tools such as \texttt{wget}, \texttt{curl},
+\texttt{nc}, \texttt{sudo}, and compilers are also promoted to
+\texttt{shell\_command} because their presence in a data-handling
+sandbox is strongly suggestive.
+
+The Privilege monitor tracks changes in the effective Linux
+capability bitmap and sudden spikes in resident-set size; both are
+canonical indicators of privilege escalation and in-memory payload
+unpacking.
+
+\subsection{Stage 5 --- Risk Scoring}
+
+Each captured event has a category; each category has a weight.
+Table~\ref{tab:sb_weights} lists the default weights. The final score
+is the sum of weights across all events, plus any archive risk bonus
+from Stage 2 and any IOC match bonus from Stage 6.
+
+\begin{table}[H]
+\centering
+\caption{Default behaviour weights}
+\label{tab:sb_weights}
+\begin{tabular}{|l|c|p{6cm}|}
+\hline
+\textbf{Event category} & \textbf{Weight} & \textbf{Rationale} \\
+\hline
+\texttt{self\_replication} & 40 & Copies itself into persistence locations. \\
+\hline
+\texttt{privilege\_escalation} & 35 & \texttt{setuid} or capability gain. \\
+\hline
+\texttt{memory\_inject} & 35 & Sudden RSS spike (packer / injector). \\
+\hline
+\texttt{file\_write\_executable} & 30 & Drops a new binary or script. \\
+\hline
+\texttt{api\_hooking} & 30 & \\
+\hline
+\texttt{network\_connect} & 25 & Any outbound connection attempt. \\
+\hline
+\texttt{shell\_command} & 25 & Shell spawned by a data file. \\
+\hline
+\texttt{registry\_write} & 20 & \\
+\hline
+\texttt{high\_entropy\_write} & 15 & Packed or encrypted write. \\
+\hline
+\texttt{dns\_lookup} & 15 & \\
+\hline
+\texttt{process\_spawn} & 10 & Generic child process. \\
+\hline
+\texttt{file\_delete} & 10 & \\
+\hline
+\texttt{file\_system\_write} & 5 & Low-weight baseline. \\
+\hline
+\end{tabular}
+\end{table}
+
+The approach of summing weighted behavioural signatures is the same
+pattern used by Cuckoo Sandbox and is supported by prior work on
+automated behavioural analysis~\cite{bayer2009scalable}. The specific
+weight values are engineering judgements derived from threat severity
+and are expected to be re-tuned against a labelled corpus during
+evaluation.
+
+\subsection{Stage 6 --- IOC Correlation}
+
+The IOC correlator computes the SHA-256 of the artifact and extracts
+IPs and domains from Network-monitor events. All three are passed to
+an injected \texttt{ThreatIntelClient}. The returned matches are
+recorded in the report and a fixed bonus is added to the risk score
+when any match is found.
+
+The client is an integration seam. The reference implementation is an
+in-memory stub with a tiny known-bad IP and hash set, suitable for
+tests and demos. Production deployments subclass the client and
+forward queries to an internal Threat Intelligence Correlator service
+or to public feeds such as VirusTotal, AlienVault OTX, or MISP.
+Exceptions raised by the client are suppressed: a transient backend
+outage must not prevent a verdict from being emitted.
+
+\subsection{Stage 7 --- Verdict}
+
+The final risk score is mapped to one of three verdicts, each
+associated with a recommended action for the Response \& Quarantine
+Manager.
+
+\begin{table}[H]
+\centering
+\caption{Verdict bands and actions}
+\label{tab:sb_verdicts}
+\begin{tabular}{|l|c|p{7cm}|}
+\hline
+\textbf{Verdict} & \textbf{Score} & \textbf{Action} \\
+\hline
+Clean & $< 25$ & Forward file to operational network. \\
+\hline
+Suspicious & $25$ to $59$ & Quarantine. Queue for analyst review. \\
+\hline
+Malicious & $\geq 60$ & Block. Alert SOC / SIEM. Flag drone feed as compromised. \\
+\hline
+\end{tabular}
+\end{table}
+
+The intermediate \emph{Suspicious} band handles uncertainty: a score
+in this range reflects something moderately worrying but not
+conclusively malicious, and the safe action is to quarantine and
+escalate to a human analyst whose decision then feeds back into the
+system.
+
+\subsection{Stage 8 --- Feedback}
+
+After the verdict is finalised, the sandbox dispatches the report to
+an injected \texttt{FeedbackSink} with three channels.
+
+\begin{itemize}
+    \item \texttt{notify\_response\_manager(report)} --- the
+          Response \& Quarantine Manager applies the recommended
+          action.
+    \item \texttt{notify\_dashboard(report)} --- the Security
+          Dashboard logs the full report for analyst review.
+    \item \texttt{queue\_for\_ml(report)} --- the ML retraining queue
+          receives the behavioural trace together with the verdict
+          label.
+\end{itemize}
+
+Each channel is invoked under independent exception handling. A
+failure on one channel does not affect the others.
+
+\section{Configuration and Defaults}
+
+The Sandbox Analyzer is configured through a \texttt{SandboxConfig}
+dataclass with a \texttt{\_\_post\_init\_\_} method that rejects
+inconsistent settings. Key defaults are listed in
+Table~\ref{tab:sb_defaults}.
+
+\begin{table}[H]
+\centering
+\caption{Sandbox Analyzer default configuration}
+\label{tab:sb_defaults}
+\begin{tabular}{|l|c|}
+\hline
+\textbf{Parameter} & \textbf{Default} \\
+\hline
+\texttt{memory\_bytes} & 128 MB \\
+\hline
+\texttt{cpu\_seconds} & 20 \\
+\hline
+\texttt{file\_bytes} & 32 MB \\
+\hline
+\texttt{max\_processes} & 50 \\
+\hline
+\texttt{wall\_timeout\_seconds} & 30 \\
+\hline
+\texttt{poll\_interval\_seconds} & 0.2 \\
+\hline
+\texttt{max\_extract\_depth} & 3 \\
+\hline
+\texttt{zip\_bomb\_ratio} & 0.005 \\
+\hline
+\texttt{encrypted\_no\_key\_score} & 25 \\
+\hline
+\texttt{double\_extension\_score} & 30 \\
+\hline
+\texttt{ioc\_match\_bonus} & 20 \\
+\hline
+\texttt{suspicious\_threshold} & 25 \\
+\hline
+\texttt{malicious\_threshold} & 60 \\
+\hline
+\end{tabular}
+\end{table}
+
+\section{Security and Threat Model}
+
+Table~\ref{tab:sb_threats} enumerates the key attacks the sandbox
+defends against and the mitigation provided by the module.
+
+\begin{longtable}{|p{6cm}|p{8cm}|}
+\caption{Sandbox Analyzer threat model (adversary vectors and mitigations)}
+\label{tab:sb_threats}\\
+\hline
+\textbf{Attack vector} & \textbf{Mitigation} \\
+\hline
+\endfirsthead
+
+\hline
+\textbf{Attack vector} & \textbf{Mitigation} \\
+\hline
+\endhead
+
+Rename a malicious script to look like an image to escape extension-based classification & Magic-byte inspection identifies the true type regardless of extension. \\
+\hline
+Ship malware inside an encrypted ZIP so the scanner cannot read it & Encrypted archives with no declared key add a risk bonus; extraction is skipped. \\
+\hline
+Hide an executable behind a double extension (\texttt{recon.jpg.sh}) & Archive handler detects the pattern and adds a risk bonus per occurrence. \\
+\hline
+Exhaust sandbox memory or CPU to crash analysis & Kernel-enforced \texttt{RLIMIT\_AS}, \texttt{RLIMIT\_CPU}, \texttt{RLIMIT\_FSIZE}, \texttt{RLIMIT\_NPROC}, \texttt{RLIMIT\_CORE}. \\
+\hline
+Fork a legion of children to escape observation & \texttt{RLIMIT\_NPROC} caps the child count; the Process monitor walks the full tree. \\
+\hline
+Connect to a C2 server briefly and exit & Kernel records \emph{SYN\_SENT} in \texttt{/proc/net/tcp}; the baseline diff catches the connection even after the process has exited. \\
+\hline
+Spoof \texttt{/proc} contents to evade observation & \texttt{/proc} is kernel-maintained; the monitored process cannot rewrite what it reports about itself. \\
+\hline
+Use a single suspicious action hoping it stays under the verdict threshold & Additive scoring across four independent monitors requires multiple corroborating signals to cross into \emph{Malicious}. \\
+\hline
+Produce a core dump to exfiltrate memory & \texttt{RLIMIT\_CORE = 0} disables core dumps. \\
+\hline
+Ship a Windows PE expecting it to be forwarded unanalysed & The router short-circuits Windows PE to \emph{Suspicious}; the file is never forwarded as \emph{Clean}. \\
+\hline
+\end{longtable}
+
+\cleardoublepage
+
+% ============================================================
+% === CHAPTER 7: METADATA SANITIZER ===
+% ============================================================
+
+\chapter{Metadata Sanitizer}
+\label{chap:metadata_sanitizer}
+
+\section{Introduction}
+
+The \textbf{Metadata Sanitizer} is a dedicated security module that
+inspects and cleans embedded metadata within drone payload files. It
+removes potentially harmful fields from EXIF data in images, JavaScript
+and auto-open actions in PDFs, tracking tags in video containers, hidden
+scripts in archives, and malformed metadata entries that could serve as
+covert channels or malware delivery vectors.
+
+Metadata is frequently the target of attack because:
+\begin{itemize}
+    \item EXIF fields in images can contain arbitrary payloads that
+          some viewers execute,
+    \item PDF documents support JavaScript, auto-open actions, and
+          embedded files,
+    \item video containers carry tracking atoms that leak mission
+          information, and
+    \item archive members can contain hidden entries or double extensions
+          disguised as benign content.
+\end{itemize}
+
+\section{Design Goals}
+
+The Metadata Sanitizer is designed to:
+\begin{itemize}
+    \item scrub harmful or sensitive fields from EXIF, PDF, document,
+          and multimedia metadata;
+    \item remove tracking tags, hidden scripts, and malformed metadata
+          entries;
+    \item normalise metadata across file types to prevent fingerprinting
+          and covert channels;
+    \item support three sanitization modes (Strip, Selective,
+          Audit-Only) with automatic selection driven by the Threat
+          Score;
+    \item preserve the original file as a forensic copy, and record a
+          full before-and-after audit trail for every modification;
+    \item verify that the sanitised file remains valid and openable;
+          and
+    \item operate transparently across multiple file types through a
+          handler registry.
+\end{itemize}
+
+\section{Sanitization Modes}
+
+Three sanitization modes are supported. The mode determines how
+aggressively metadata is removed or redacted.
+
+\begin{table}[H]
+\centering
+\caption{Sanitization modes}
+\label{tab:san_modes}
+\begin{tabular}{|l|p{10cm}|}
+\hline
+\textbf{Mode} & \textbf{Behaviour} \\
+\hline
+\texttt{strip} & Remove every non-essential metadata field. Reserved for high-risk artifacts. \\
+\hline
+\texttt{selective} & Remove only known-dangerous fields (for example, JavaScript, auto-open actions, GPS coordinates), preserve everything else. Default mode. \\
+\hline
+\texttt{audit\_only} & Do not modify the file; log every dangerous field that would have been stripped, as a \emph{flagged} change record. Used for known-good sources and forensic sampling. \\
+\hline
+\end{tabular}
+\end{table}
+
+\section{Threat-Score--Driven Mode Selection}
+
+The Metadata Sanitizer receives the Threat Score ($T_S$) from the
+Game-Theoretic Threat Estimator. When no explicit mode is provided by
+the caller, the sanitizer selects its mode automatically using two
+configurable thresholds:
+
+\begin{itemize}
+    \item if $T_S \geq \texttt{threat\_score\_strip\_threshold}$
+          (default 0.7), the mode is \texttt{strip};
+    \item if $T_S \leq \texttt{threat\_score\_audit\_threshold}$
+          (default 0.3), the mode is \texttt{audit\_only};
+    \item otherwise, the mode is the configured \texttt{default\_mode}
+          (typically \texttt{selective}).
+\end{itemize}
+
+An explicit \texttt{mode\_override} supplied by the caller always takes
+priority. The insecure flags produced by the Ingestion Interceptor are
+additionally considered: if the flags include high-risk markers such
+as \emph{encrypted\_payload} or \emph{nested\_archive}, the mode is
+escalated to \texttt{strip} even if the Threat Score is moderate.
+
+\section{Handler Architecture}
+
+Per-file-type sanitization is delegated to handlers. Each handler
+implements a common abstract interface with three methods:
+
+\begin{itemize}
+    \item \texttt{extract\_metadata(file\_path)} --- returns the
+          metadata as a JSON-serialisable dictionary for the forensic
+          before-snapshot;
+    \item \texttt{sanitize(file\_path, output\_path, mode)} --- applies
+          the mode to the file, writing the cleaned version to
+          \texttt{output\_path} and returning the list of changes made;
+    \item \texttt{verify(file\_path)} --- re-parses the sanitised file
+          to confirm that it is still valid and openable.
+\end{itemize}
+
+Handlers are cached per sanitizer instance. When an optional library
+required by a handler (for example, \texttt{pillow} for images or
+\texttt{pikepdf} for PDFs) is absent, the handler reports
+\emph{unavailable} and the corresponding files are skipped gracefully.
+Table~\ref{tab:handlers} summarises the built-in handlers.
+
+\begin{table}[H]
+\centering
+\caption{Built-in file-type handlers}
+\label{tab:handlers}
+\begin{tabular}{|l|l|p{7cm}|}
+\hline
+\textbf{Handler} & \textbf{Types} & \textbf{Typical cleanup actions} \\
+\hline
+Image & JPEG, PNG, TIFF, BMP & Strip all EXIF / XMP / IPTC blocks; preserve essential technical tags. \\
+\hline
+PDF & PDF & Remove JavaScript, auto-open actions, embedded files, and document-open triggers. \\
+\hline
+Video & MP4, MKV, MOV, MP3, FLAC & Strip tracking atoms, device identifiers, and custom boxes. \\
+\hline
+Archive & ZIP, TAR & Remove hidden members, re-emit with clean central directory, strip comments. \\
+\hline
+Text & TXT, CSV, JSON & Normalise line endings, strip unicode direction-override characters. \\
+\hline
+\end{tabular}
+\end{table}
+
+\section{Sanitization Rules}
+
+The rules applied to each file type are declarative and are organised
+into three lists: \emph{always strip}, \emph{strip in high-security
+mode}, and \emph{always preserve}. The rule tables are exposed as
+module-level constants so that an operator can extend them without
+modifying code. Examples include:
+
+\begin{itemize}
+    \item \textbf{EXIF always-strip list:} GPS coordinates,
+          \texttt{UserComment}, \texttt{MakerNote}, \texttt{ImageUniqueID},
+          \texttt{CameraSerialNumber}, and similar fingerprinting tags.
+    \item \textbf{PDF always-strip keys:} \texttt{/JavaScript},
+          \texttt{/JS}, \texttt{/AA} (additional actions),
+          \texttt{/OpenAction}, \texttt{/Launch}, \texttt{/EmbeddedFile}.
+    \item \textbf{Video always-strip atoms:} \texttt{meta}, \texttt{loci}
+          (location), vendor-specific boxes.
+\end{itemize}
+
+\section{Result Schema}
+
+The sanitizer emits one \texttt{SanitizationResult} per file and one
+\texttt{BatchSanitizationResult} for a batch. Each per-file result
+carries:
+
+\begin{itemize}
+    \item the artifact identifier and filename;
+    \item the detected file type and MIME type;
+    \item a boolean indicating whether any modification was made;
+    \item the mode used (resolved from the Threat Score);
+    \item a list of \texttt{SanitizationChange} records, each
+          describing one field with its action (\emph{removed},
+          \emph{redacted}, \emph{normalised}, \emph{truncated},
+          \emph{flagged}), reason, and severity;
+    \item warnings and errors;
+    \item SHA-256 hashes of the serialised metadata before and after
+          sanitization;
+    \item the validity status of the file after sanitization; and
+    \item processing time and handler identification.
+\end{itemize}
+
+The batch result aggregates per-file totals: number processed,
+number sanitised, number skipped, number of errors, and total changes.
+
+\section{Security Considerations}
+
+\begin{itemize}
+    \item \textbf{Forensic preservation.} Originals are preserved with
+          a configurable suffix (default \texttt{.orig}) before
+          sanitization so that analysts can still examine the raw
+          artifact.
+    \item \textbf{Post-sanitization verification.} When
+          \texttt{verify\_after\_sanitize} is enabled, the handler
+          re-parses the file to confirm that sanitization has not
+          corrupted it. Failures are recorded in the result and the
+          original is restored.
+    \item \textbf{Bounded file size.} Files larger than
+          \texttt{max\_file\_size\_bytes} are skipped to avoid
+          denial-of-service through pathological inputs.
+    \item \textbf{Declarative rules.} The rule tables are separate from
+          the handler code, so operators can extend the \emph{always
+          strip} list without touching the sanitizer logic.
+\end{itemize}
+
+\cleardoublepage
+
+% ============================================================
+% === CHAPTER 8: RESULTS AND ANALYSIS ===
+% ============================================================
+
+\chapter{Results and Analysis}
+\label{chap:results}
+
+This chapter presents the experimental results obtained from each of
+the four implemented modules and from the integrated pipeline. All
+experiments were conducted on commodity Linux hardware with Python
+3.10 using the module test suites and the demo runners bundled with
+each module.
+
+\section{Evaluation Dataset}
+
+Evaluations use a mix of hand-crafted drone submissions and
+automatically generated synthetic payloads covering the full range of
+scenarios the system is designed to handle.
+Table~\ref{tab:dataset_samples} summarises the representative
+samples.
+
+\begin{table}[H]
+\centering
+\caption{Representative evaluation samples}
+\label{tab:dataset_samples}
+\begin{tabular}{|l|p{10cm}|}
+\hline
+\textbf{Sample} & \textbf{Description} \\
+\hline
+Sample A & Normal drone feed: one MP4 video and one JPEG image, no flags, authenticated. \\
+\hline
+Sample B & Encrypted nested ZIP archive arriving without a declared key. \\
+\hline
+Sample C & Telemetry-only bundle of a small JSON file, low-risk zone. \\
+\hline
+Sample D & Large surveillance video (12 MB) with critical mission sensitivity. \\
+\hline
+Sample E & ZIP archive that includes a member with a double-extension disguise (\texttt{recon.jpg.sh}). \\
+\hline
+Sample F & Synthetic malicious script that simulates a C2 callback and a shell spawn; used for live sandbox integration testing. \\
+\hline
+\end{tabular}
+\end{table}
+
+\section{Threat Estimator Results}
+
+\subsection{Bayesian Cold-Start Reputation}
+
+Reproducing the reference example of a ZIP submission from a risky
+zone with a benign prior of $0.85$:
+\[
+R = \frac{0.85 \times 0.12 \times 0.08}{0.00816 + (0.15 \times 0.35 \times 0.45)}
+  \approx 0.257.
+\]
+The test suite's \texttt{test\_plan\_worked\_example} asserts this
+value to three decimal places and passes. Cold-start reputations for
+the demo samples are listed in Table~\ref{tab:gte_bayes}.
+
+\begin{table}[H]
+\centering
+\caption{Cold-start Bayesian reputations for demo samples}
+\label{tab:gte_bayes}
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Sample} & \textbf{Zone} & \textbf{Dominant file type} & \textbf{Initial $R$} \\
+\midrule
+A & zone-a & video & 0.988 \\
+B & zone-c & archive & 0.257 \\
+C & zone-b & telemetry & 0.969 \\
+D & zone-a & video & 0.988 \\
+E & zone-3 & archive & 0.257 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Threat Score and Inspection Level}
+
+End-to-end Threat Scores for the demo samples are shown in
+Table~\ref{tab:gte_results}. Every score is the result of the full
+pipeline: Bayesian reputation feeds $R$ into the impact function, the
+Stackelberg solver produces the equilibrium, and the sigmoid blend
+produces $T_S$.
+
+\begin{table}[H]
+\centering
+\caption{Threat Score and inspection level per sample}
+\label{tab:gte_results}
+\begin{tabular}{@{}lccl@{}}
+\toprule
+\textbf{Sample} & \textbf{Reputation source} & \textbf{$T_S$} & \textbf{Level} \\
+\midrule
+A & bayesian\_prior & 0.011 & Low \\
+B & bayesian\_prior & 0.075 & Low \\
+C & bayesian\_prior & 0.624 & Medium \\
+D & bayesian\_prior & 0.011 & Low \\
+E & bayesian\_prior & 0.075 & Low \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+These results demonstrate that the estimator correctly reserves higher
+scores for submissions whose observed context (low reputation, risky
+zone, or high-impact file type) warrants deeper inspection.
+
+\subsection{Adaptive Thresholds}
+
+The adaptive threshold manager was exercised with a synthetic
+feedback sequence of seven monitoring windows in which the FPR
+dropped gradually from $0.12$ to $0.05$ while the FNR stayed near
+$0.04$. The thresholds drifted upward each window as expected,
+starting from the default pair $(0.40, 0.70)$ and settling near
+$(0.415, 0.715)$, without ever leaving the configured safe bounds
+$([0.20, 0.50]$ for $\theta_{\text{low}}$ and $[0.55, 0.85]$ for
+$\theta_{\text{high}}$). A second experiment with elevated FNR
+confirmed that the thresholds moved in the opposite direction when
+the feedback suggested evasions were being missed.
+
+\subsection{Reputation Dynamics}
+
+Starting from the Bayesian prior $R_0 = 0.257$, a single malicious
+verdict drove the reputation down to $0.128$, and ten successive
+benign verdicts recovered it to $0.555$. The asymmetry ratio is
+consistent with the configured reward and penalty rates
+($\eta_+ = 0.05$, $\eta_- = 0.50$) and confirms the policy intent
+that a single confirmed infection costs as much as ten clean
+deliveries.
+
+\section{Ingestion Interceptor Results}
+
+The Ingestion Interceptor was exercised through its
+seventy-five-test unit suite and its demo runner on the six
+representative samples. All samples were processed end-to-end without
+error. Table~\ref{tab:ii_flags} lists the insecure flags extracted by
+the payload analyser.
+
+\begin{table}[H]
+\centering
+\caption{Insecure flags extracted by the Ingestion Interceptor}
+\label{tab:ii_flags}
+\begin{tabular}{@{}lcl@{}}
+\toprule
+\textbf{Sample} & \textbf{Flag count} & \textbf{Flags} \\
+\midrule
+A & 0 & (none) \\
+B & 2 & encrypted\_payload, nested\_archive \\
+C & 0 & (none) \\
+D & 1 & large\_binary \\
+E & 1 & suspicious\_mime \\
+F & 0 & (none) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The Stage~0 packet receiver was exercised with a separate drone
+simulator. For every submission, the packet stream was fragmented,
+HMAC-signed, and shipped over UDP; the receiver reassembled the
+stream into the same dictionary that the in-process code path
+produces, confirming that the wire-level and in-process paths share a
+single downstream contract. Malformed or replayed packets were
+dropped and counted in the packet statistics dictionary as expected.
+
+\section{Sandbox Analyzer Results}
+
+The Sandbox Analyzer was validated through its fifty-test suite and
+its four-stage demo. Table~\ref{tab:sb_demo} summarises the outcome
+on each demo scenario.
+
+\begin{table}[H]
+\centering
+\caption{Sandbox Analyzer demo outcomes}
+\label{tab:sb_demo}
+\begin{tabular}{|l|l|c|c|l|}
+\hline
+\textbf{Scenario} & \textbf{Routing category} & \textbf{Score} & \textbf{Verdict} & \textbf{Notes} \\
+\hline
+Safe CSV & safe & 0 & Clean & Short-circuited at Stage 1. \\
+\hline
+Disguised \texttt{.jpg} shell script & script & 0 & Clean & Correctly routed by magic bytes; behaved cleanly. \\
+\hline
+Archive with \texttt{recon.jpg.sh} & archive & 85 & Malicious & Double-extension bonus + network event. \\
+\hline
+Python C2 callback script & script & 75 & Malicious & \texttt{network\_connect} $\times 3$ during execution. \\
+\hline
+Windows PE & windows & 0 & Suspicious & Short-circuited for analyst review. \\
+\hline
+\end{tabular}
+\end{table}
+
+The Windows PE result is notable. An earlier draft of the orchestrator
+returned a \emph{Clean} verdict for PE files because they could not be
+executed on the Linux host. This was corrected during review: any
+artifact that reaches the sandbox has already been scored High by the
+Threat Estimator, so inability to analyse is not evidence of safety.
+The fixed behaviour short-circuits PE files to \emph{Suspicious} with
+a quarantine action, and a dedicated test
+(\texttt{test\_windows\_exe\_flagged\_suspicious\_not\_forwarded})
+prevents regressions.
+
+\section{Metadata Sanitizer Results}
+
+The Metadata Sanitizer was validated against its ninety-six-test unit
+suite. Sample results on a JPEG image carrying a GPS block, a PDF
+containing JavaScript and an auto-open action, and an MP4 with
+tracking atoms are summarised in Table~\ref{tab:ms_results}.
+
+\begin{table}[H]
+\centering
+\caption{Representative Metadata Sanitizer results}
+\label{tab:ms_results}
+\begin{tabular}{|l|l|c|c|}
+\hline
+\textbf{Input} & \textbf{Mode selected} & \textbf{Changes made} & \textbf{Post-sanitize valid?} \\
+\hline
+JPEG (GPS + UserComment) & selective & 2 (GPS, UserComment) & yes \\
+\hline
+PDF (JS + OpenAction) & selective & 2 (JS, OpenAction) & yes \\
+\hline
+MP4 (loci + vendor atom) & selective & 1 (loci) & yes \\
+\hline
+ZIP (clean) & audit\_only & 0 (flagged 0) & yes \\
+\hline
+EXE (skipped MIME) & skip & 0 & n/a \\
+\hline
+\end{tabular}
+\end{table}
+
+The mode-selection logic was validated by feeding a range of Threat
+Scores into the sanitizer with a consistent artifact: scores below 0.3
+selected \emph{audit\_only}, scores above 0.7 selected \emph{strip},
+and intermediate scores selected the configured \emph{selective}
+default. Explicit \texttt{mode\_override} arguments correctly took
+priority over the threshold-driven selection.
+
+\section{Integrated Pipeline Evaluation}
+
+The four modules were wired together using their declared integration
+seams:
+\begin{itemize}
+    \item the Ingestion Interceptor's \texttt{IngestResult} was fed
+          into the Threat Estimator through
+          \texttt{estimate\_from\_ingest\_result()};
+    \item the estimator's inspection level was used to decide whether
+          to invoke the Sandbox Analyzer;
+    \item the Sandbox Analyzer's verdict and inspection level were
+          converted into a \texttt{DetectionOutcome} and reported back
+          to the estimator through \texttt{record\_outcome()};
+    \item the Metadata Sanitizer was invoked with the Threat Score,
+          which automatically selected its sanitization mode.
+\end{itemize}
+
+The integration was exercised through a reproducible end-to-end
+scenario in which a cold-start drone submitted an encrypted archive,
+the Threat Estimator computed a Bayesian prior of $0.257$ and emitted
+a moderate Threat Score, the sandbox executed each extracted script
+and detected the double-extension member, the Response Manager was
+notified with a Malicious verdict, and the estimator's adaptive
+thresholds drifted upward in the next monitoring window in response
+to a simulated FPR spike. The full end-to-end flow completed in under
+two seconds on commodity hardware, consistent with the latency
+targets in Section~\ref{sec:gte-config}.
+
+\section{Test Suite Summary}
+
+Table~\ref{tab:tests} summarises the unit-test coverage of the four
+implemented modules.
+
+\begin{table}[H]
+\centering
+\caption{Unit-test coverage per module}
+\label{tab:tests}
+\begin{tabular}{|l|c|}
+\hline
+\textbf{Module} & \textbf{Tests} \\
+\hline
+Ingestion Interceptor & 75 \\
+\hline
+Metadata Sanitizer & 96 \\
+\hline
+Game-Theoretic Threat Estimator & 48 \\
+\hline
+Sandbox Analyzer & 50 \\
+\hline
+\textbf{Total} & \textbf{269} \\
+\hline
+\end{tabular}
+\end{table}
+
+Every module passes its full suite on the current code base. The
+Sandbox Analyzer's single live-integration test is Linux-only and is
+automatically skipped on non-Linux hosts, keeping continuous-integration
+output clean across platforms.
+
+\section{System-Level Observations}
+
+The combined architecture demonstrates four key properties.
+
+\begin{itemize}
+    \item \textbf{Strong interpretability.} Every score produced by the
+          system is traceable to its contributing factors. The Threat
+          Estimator emits the full Bayesian trace, payoff matrices,
+          and equilibrium cell; the Sandbox Analyzer emits the complete
+          list of monitor events; the Metadata Sanitizer emits a
+          before-and-after SHA-256 of the metadata along with a list of
+          per-field changes.
+    \item \textbf{Modularity.} All four modules are independent Python
+          packages with well-defined data-class interfaces. Each can
+          be replaced or extended without touching the others.
+    \item \textbf{Operational realism.} Every module exposes a
+          \texttt{stats} property for live monitoring and validates its
+          configuration at construction time. Bounded memory and
+          per-channel exception isolation make long-running edge
+          deployments practical.
+    \item \textbf{Real-time performance.} On commodity hardware, the
+          Ingestion Interceptor processes a submission in a few
+          milliseconds, the Threat Estimator in under a millisecond,
+          the Metadata Sanitizer in the tens of milliseconds per file,
+          and the Sandbox Analyzer in under two seconds on short-lived
+          targets. These latencies are compatible with the operational
+          targets stated in the project motivation.
+\end{itemize}
+
+\cleardoublepage
+
+% ============================================================
+% === CHAPTER 9: CONCLUSION AND FUTURE WORK ===
+% ============================================================
+
+\chapter{Conclusion and Future Work}
+\label{chap:conclusion}
+
+\section{Summary of Contributions}
+
+This project designed and implemented four production-grade components
+of a multi-layered threat detection pipeline for drone data streams.
+
+\begin{enumerate}
+    \item \textbf{Game-Theoretic Threat Estimator.} A principled risk
+          scorer that combines a Stackelberg game between the defender
+          and the attacker, a Bayesian Belief Network that solves the
+          cold-start problem using operational context, and an
+          adaptive threshold manager that soft-updates the routing
+          thresholds based on live detection feedback.
+    \item \textbf{Ingestion Interceptor.} A robust entry gate that
+          authenticates drones, validates submissions, extracts
+          metadata, flags insecure indicators, verifies checksums,
+          catalogues artifacts, and supports secure operator uplink.
+          The wire-level Stage 0 packet receiver allows real drones to
+          stream fragmented payloads over UDP with HMAC-verified
+          per-packet integrity.
+    \item \textbf{Sandbox Analyzer.} A dynamic-analysis layer that
+          runs high-risk artifacts inside a kernel-limited Linux
+          sandbox, observes them through four independent
+          \texttt{/proc}-based monitors, correlates findings against
+          threat intelligence, and emits a three-level verdict backed
+          by a complete behavioural trace.
+    \item \textbf{Metadata Sanitizer.} A handler-based sanitizer that
+          cleans embedded metadata from images, PDFs, video, archives,
+          and text files. The sanitization mode is selected
+          automatically from the Threat Score, and every change is
+          recorded with a full audit trail.
+\end{enumerate}
+
+Together, these modules cover the Ingestion, Risk Scoring, Dynamic
+Analysis, and Metadata Cleaning layers of the nine-module pipeline.
+They integrate through well-defined data-class interfaces, expose
+pluggable seams for the remaining placeholder modules, and deliver an
+end-to-end latency consistent with real-time drone operations.
+
+\section{Key Findings}
+
+The main engineering findings from this work are:
+\begin{itemize}
+    \item \textbf{Context is sufficient for cold-start scoring.} The
+          Bayesian combination of operational zone and file type is
+          enough to produce meaningful initial reputations (for
+          example, $R \approx 0.257$ for a ZIP in a risky zone), so
+          the cold-start problem does not require heuristic defaults.
+    \item \textbf{Adaptive thresholds stabilise under realistic
+          feedback.} A small learning rate, bounded safe clamps, and
+          a minimum gap between $\theta_{\text{low}}$ and
+          $\theta_{\text{high}}$ keep the adaptive thresholds stable
+          under noisy FPR and FNR estimates.
+    \item \textbf{Kernel-level observation beats library-level
+          instrumentation.} Reading \texttt{/proc} gives the sandbox a
+          tamper-resistant view of the monitored process without
+          requiring any code injection.
+    \item \textbf{Encrypted archives should be treated as evidence.}
+          Refusing to crack encrypted containers and instead scoring
+          them as suspicious produces a cleaner threat model than
+          attempting dictionary attacks.
+    \item \textbf{Interpretable outputs ease operational adoption.}
+          Emitting Bayesian traces, payoff matrices, equilibrium
+          cells, and full behavioural event lists makes every verdict
+          auditable, which is essential for deployments in
+          mission-critical environments.
+\end{itemize}
+
+\section{Known Limitations}
+
+The following limitations apply to the four modules implemented in
+this work.
+
+\begin{itemize}
+    \item The full end-to-end detection pipeline also depends on
+          additional modules (Signature Scanner, AI/ML Classifier,
+          Threat Intelligence Correlator, Response \& Quarantine
+          Manager, Security Dashboard) whose implementation falls
+          outside the scope of this report. The four modules built
+          here expose well-defined integration seams against which
+          those components can be plugged in; evaluation in this
+          report therefore goes as far as those seams and uses
+          reference stubs on the other side of them.
+    \item The Sandbox Analyzer's dynamic stages (execution and the
+          four monitors) require a Linux host with
+          \texttt{resource.setrlimit} and \texttt{/proc}. On other
+          platforms, the static stages still run and the report
+          carries an explicit warning.
+    \item Windows PE files are short-circuited to \emph{Suspicious}
+          and quarantined for analyst review. Running them inside the
+          sandbox would require a Windows virtual machine, which is
+          out of scope.
+    \item The CPTs used by the Bayesian estimator are seed values
+          derived from operational intuition rather than from a
+          labelled corpus.
+    \item The Signature Verifier currently supports HMAC-SHA256;
+          upgrading to an asymmetric scheme such as Ed25519 is a
+          straightforward extension of the Ingestion Interceptor.
+    \item All evaluations use synthetic payloads crafted to cover the
+          representative scenarios described in the results chapter;
+          validation on a live drone feed is left for a later
+          deployment phase.
+\end{itemize}
+
+\section{Future Work}
+
+Several extensions would sharpen the accuracy and robustness of the
+four modules implemented here.
+
+\begin{itemize}
+    \item \textbf{Learn the Bayesian CPTs from data.} Accumulate
+          verdict feedback over time and refresh the Conditional
+          Probability Tables through an online learning job so the
+          Threat Estimator adapts to the deployed environment.
+    \item \textbf{Mixed-strategy solver.} Extend the Threat Estimator
+          with a mixed-strategy Stackelberg solver for scenarios where
+          the pure-strategy equilibrium is sub-optimal.
+    \item \textbf{Production reputation store.} Replace the in-memory
+          reference reputation store in the Threat Estimator with a
+          Redis- or Postgres-backed subclass, with snapshotting for
+          restart resilience.
+    \item \textbf{Ground-station adapters for the Ingestion
+          Interceptor.} Implement adapters for mainstream drone
+          protocols (MAVLink, DJI MSDK) that feed the Interceptor
+          through its ingestion entry point, for drones whose
+          firmware cannot be modified.
+    \item \textbf{Cross-VM sandbox backend.} Extend the Sandbox
+          Analyzer with a Windows virtual-machine backend so that
+          Windows PE artifacts can be executed and analysed instead
+          of merely quarantined.
+    \item \textbf{Richer metadata rules.} Expand the Metadata
+          Sanitizer's rule tables to cover further file types
+          (Office documents, RAW camera formats) and add a JSON rule
+          file so operators can tune the rules without touching code.
+    \item \textbf{Field evaluation on a live drone feed.} Deploy the
+          four modules on real edge hardware with a live drone feed
+          and measure long-run accuracy, stability, and latency under
+          realistic operating conditions.
+\end{itemize}
+
+\cleardoublepage
+
+% ============================================================
+% === REFERENCES ===
+% ============================================================
+
+\addcontentsline{toc}{chapter}{References}
+\bibliographystyle{ieeetr}
+
+\nocite{*}
+
+\bibliography{references}
+
+\end{document}

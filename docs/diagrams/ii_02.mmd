@@ -1,0 +1,26 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '16px'}}}%%
+flowchart TB
+    INT["<b>interceptor.py</b><br/>IngestionInterceptor<br/>8-stage pipeline"]:::main
+
+    PR["<b>packet_receiver.py</b><br/>Stage 0: UDP listener<br/>+ ReassemblyBuffer + GC"]:::stage0
+    PROTO["<b>protocol/</b><br/>packet codec +<br/>submission_codec (TLV)"]:::stage0
+
+    CFG["config.py"]
+    VAL["validator.py"]
+    AUTH["authenticator.py"]
+    META["metadata_extractor.py"]
+    PA["payload_analyzer.py"]
+    CV["checksum_verifier.py"]
+    AM["artifact_manager.py"]
+    UP["uplink.py"]
+    MOD["models.py"]
+
+    PR -.->|"on_submission()"| INT
+    PR --> PROTO
+    INT --> VAL & AUTH & META & PA & CV & AM
+    CFG -.->|"shared config"| VAL & AUTH & META & PA & CV & AM & PR
+    UP -.->|"Modifies registry"| AUTH
+    MOD -.->|"imported by all"| INT
+
+    classDef main fill:#E3F2FD,stroke:#1565C0,stroke-width:3px
+    classDef stage0 fill:#FFF9C4,stroke:#F9A825,stroke-width:2px

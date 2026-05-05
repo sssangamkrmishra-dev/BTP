@@ -70,9 +70,10 @@ through an eight-stage processing pipeline:
 1. **Packet Reception & Reassembly** --- receives wire-level UDP datagrams
    from drone platforms, verifies per-packet HMAC-SHA256, reassembles
    fragmented submissions, and decodes the binary TLV payload back into a
-   structured submission. This stage is optional: the interceptor still
-   accepts in-process dict submissions via the legacy `process()` entry
-   point for tests, demos, and the original integration path.
+   structured submission. This stage is optional: the interceptor also
+   accepts in-process dict submissions via the `process()` entry point,
+   which is the primary integration path for real drone deployments (see
+   below).
 2. **Structure Validation** --- verifies required fields, data types, timestamps,
    size limits, and path traversal defences.
 3. **Device Authentication** --- verifies drone identity through a device
@@ -98,8 +99,41 @@ inspection depth applied by downstream detection engines.
 
 The module also supports a **secure uplink channel** from the control center,
 enabling real-time quarantine commands, device revocations, zone risk updates,
-and dynamic parameter adjustment for a live feedback loop between the security dashboard and the edge detection
-engine.
+and dynamic parameter adjustment for a live feedback loop between the security
+dashboard and the edge detection engine.
+
+**Real drone integration model:** The interceptor provides two entry points.
+The **`process(dict)`** method (Stages 1--7) is the primary integration
+path for real drone deployments. Real drones (DJI, PX4/ArduPilot, or
+proprietary platforms) transmit data via their native protocols (MAVLink,
+DJI MSDK, etc.). A **ground-station adapter** on the edge node receives
+these native feeds, converts the data into the expected JSON dict format
+(`drone_id`, `timestamp`, `payloads`, and optional metadata fields), and
+calls `process()`. This architecture keeps the interceptor
+protocol-agnostic --- it validates, authenticates, and catalogues the
+submission regardless of how the data arrived at the edge.
+
+Stage 0 (the custom `RPAD` binary UDP protocol) demonstrates wire-level
+security engineering --- per-packet HMAC, replay detection, reassembly
+--- and can be used when the drone platform is capable of running a
+custom firmware module that speaks the `RPAD` protocol. For drones that
+cannot be modified, the ground-station adapter path is the standard
+deployment pattern:
+
+```
+Real Drone (DJI / PX4 / ArduPilot / proprietary)
+    │
+    │  Native protocol (MAVLink, DJI MSDK, etc.)
+    ▼
+Ground Station / Edge Gateway
+    │
+    │  Adapter: parse native protocol → build submission dict
+    ▼
+IngestionInterceptor.process(dict)     ← primary entry point
+    │
+    ▼
+IngestResult → Game-Theoretic Threat Estimator → downstream pipeline
+```
 
 ---
 
@@ -130,6 +164,7 @@ engine.
 | NG-4  | Long-term artifact storage management --- handled by storage infrastructure            |
 | NG-5  | Security dashboard rendering --- handled by Logging & Feedback Loop layer              |
 | NG-6  | Real-time video stream processing --- the module handles discrete submission payloads  |
+| NG-7  | Native drone protocol handling (MAVLink, DJI MSDK, etc.) --- a ground-station adapter converts native feeds into the submission dict format before calling `process()` |
 
 ---
 
@@ -254,15 +289,16 @@ with all modules and the data flow between them.
   │ Drone  │ ── UDP ──►│         INGESTION INTERCEPTOR                  │  │
   │ / RPA  │ packets│  │                                                 │  │
   │Platform│ (wire) │  │  Stage 0: Packet receiver (HMAC verify,        │  │
-  └────────┘       │  │           reassemble, decode binary TLV)        │  │
-                   │  │  Stages 1-7: Validate, authenticate, extract    │  │
-                   │  │           metadata, analyse, checksum, catalog,  │  │
-                   │  │           assemble                               │  │
-                   │  │                                                 │  │
-                   │  │  Input:  UDP packets (Stage 0) OR dict          │  │
-                   │  │          (in-process via process())              │  │
-                   │  │  Output: IngestResult (metadata + artifacts)    │  │
-                   │  │                    OR error report               │  │
+  └────┬───┘       │  │           reassemble, decode binary TLV)        │  │
+       │           │  │  Stages 1-7: Validate, authenticate, extract    │  │
+       │  native   │  │           metadata, analyse, checksum, catalog,  │  │
+       │  protocol │  │           assemble                               │  │
+       ▼           │  │                                                 │  │
+  ┌──────────┐     │  │  Input:  UDP packets (Stage 0) OR dict          │  │
+  │ Ground   │ dict│  │          (via process() — primary path for      │  │
+  │ Station  │─────┼──►│          real drones using native protocols)    │  │
+  │ Adapter  │     │  │  Output: IngestResult (metadata + artifacts)    │  │
+  └──────────┘     │  │                    OR error report               │  │
                    │  └──────────────┬──────────────────────────────────┘  │
                    │                 │                                      │
                    │                 │ IngestResult                         │
@@ -452,6 +488,25 @@ constants and makes the system testable by allowing callers to inject different
 configurations per test case. Default values are chosen for a balanced security
 posture suitable for field deployment.
 
+> **Note --- Current vs Production backends:** The current implementation
+> defaults to in-memory data structures and local filesystem paths for ease
+> of development, testing, and demonstration. For production edge
+> deployments, the following backends are recommended:
+>
+> | Component | Current (Dev/Demo) | Production |
+> |---|---|---|
+> | Device registry | In-memory dict / JSON file | SQLite (edge) or PostgreSQL (centralized) |
+> | Uplink transport | In-memory queue / file polling | gRPC bidirectional streaming or MQTT broker |
+> | Artifact storage | Local filesystem | MinIO (edge-local S3-compatible) with S3 cloud archival |
+> | Zone risk lookup | In-memory dict | Redis or SQLite (must survive process restarts) |
+> | Quarantine set | In-memory set | Redis SET or SQLite (lost quarantine on restart = security gap) |
+> | HMAC key store | In-memory dict | HashiCorp Vault or hardware HSM (keys must never touch disk unencrypted) |
+> | Processing stats | In-memory counters | Prometheus + Grafana (time-series, alerting, historical trending) |
+> | Audit logs | Python `logging` to stdout/file | ELK stack (Elasticsearch + Logstash + Kibana) or Grafana Loki |
+>
+> The `InterceptorConfig` dataclass is designed so that swapping backends
+> requires changing only the configuration values, not the pipeline logic.
+
 **Key parameter groups:**
 - **Validation** --- `require_signature`, `max_payload_size_bytes`,
   `max_payloads_per_submission`, `allowed_mime_types`
@@ -544,6 +599,22 @@ trust status of the submitting drone device.
 4. If a cryptographic signature is provided, verify it using HMAC-SHA256 against
    the submission's payload hash. Failed signature verification downgrades trust.
 5. Return `AuthResult` with status, reputation, trust flag, and detail dict.
+
+> **Note --- Production registry backend:** The current implementation stores
+> the device registry as an in-memory Python dict (optionally loaded from a
+> JSON file at startup). This is sufficient for testing and demos but does
+> **not** survive process restarts and cannot be shared across multiple edge
+> nodes. For production deployments:
+> - **Single edge node:** Use a SQLite database (zero-config, ACID, single-file)
+>   so that device registrations, reputations, and revocations persist across
+>   restarts.
+> - **Multi-node / centralized fleet management:** Use PostgreSQL or a REST
+>   API backed by a central database, allowing the control center to manage
+>   the fleet-wide device registry with consistency guarantees.
+> - **HMAC key store:** Shared secrets used for per-drone signature
+>   verification and Stage 0 packet authentication must be managed through
+>   HashiCorp Vault or a hardware HSM in production. Storing keys in a
+>   plain Python dict or JSON file is acceptable only for development.
 
 **`AuthResult.status` values:**
 - `authenticated` --- device found, trusted, signature valid (if checked)
@@ -659,6 +730,23 @@ downstream modules use to locate and process files.
   and video payloads
 - `create_artifact_record()` --- assembles a complete `ArtifactRecord`
 
+> **Note --- Production artifact storage:** The current implementation
+> constructs local filesystem paths (`drone_remote_store/<drone_id>/`) for
+> artifact storage. For production deployments:
+> - **Edge node:** Deploy **MinIO** (self-hosted, S3-compatible object
+>   store) on the edge node. MinIO provides versioning, erasure coding,
+>   and an S3-compatible API that downstream modules can use with
+>   pre-signed URLs.
+> - **Cloud archival:** Configure a replication policy from the edge MinIO
+>   instance to a centralized **AWS S3** or equivalent bucket for long-term
+>   forensic storage and cross-site analysis.
+> - **Thumbnail generation:** In production, thumbnail generation should be
+>   an async task (e.g., via a Celery worker) rather than inline in the
+>   ingestion pipeline, to avoid blocking the critical path.
+>
+> Set `storage_backend = "minio"` and `artifact_uri_prefix = "s3://edge-forensics/artifacts"`
+> in `InterceptorConfig` to switch.
+
 ### 5.9 `uplink.py` --- Control Center Communication
 
 **Purpose:** Enables bidirectional communication from the control center to the
@@ -701,6 +789,27 @@ edge interceptor, supporting real-time operational commands.
 | `UPDATE_ZONE_RISK`  | `*`                 | Updates zone risk map (params: `zone`, `risk`)       |
 | `UPDATE_CONFIG`     | `*`                 | Reserved for dynamic configuration updates           |
 | `FORCE_RESCAN`      | `ingest_id`         | Reserved for triggering re-analysis                  |
+
+> **Note --- Production uplink transport:** The current implementation
+> provides two modes: `memory` (in-process queue for unit testing) and
+> `file` (JSON file polling for integration testing). Neither is suitable
+> for production because they do not guarantee delivery, persistence, or
+> ordering under failure. For production deployments:
+> - **Preferred:** **MQTT 5.0** over TLS with QoS 1 (at-least-once delivery).
+>   MQTT is lightweight, widely supported on constrained edge hardware, and
+>   natively supports retained messages and last-will-and-testament for
+>   connection health monitoring.
+> - **Alternative:** **gRPC bidirectional streaming** over mTLS for
+>   environments that already have a gRPC service mesh. Provides strong
+>   typing (protobuf), built-in flow control, and deadline propagation.
+> - **Command persistence:** In either mode, pending commands should be
+>   backed by a **Redis list** or a **SQLite WAL-mode table** on the edge
+>   node so that commands received while the interceptor is restarting are
+>   not lost.
+> - **Quarantine set persistence:** The in-memory quarantine set must be
+>   persisted to Redis or SQLite. A quarantine entry lost on restart
+>   means a suspicious submission could be released to the operational
+>   network unreviewed.
 
 ### 5.10 `packet_receiver.py` --- Stage 0: Packet Reception & Reassembly
 
@@ -1929,6 +2038,24 @@ Output:
 | Quarantine support             | Ingest-level quarantine via uplink commands               | Contain suspicious submissions               |
 | Structured logging             | All processing events logged with context                | Forensic investigation, audit trail          |
 
+### 10.8 Production Hardening Recommendations
+
+The following measures are not yet implemented but are essential for
+production field deployment:
+
+| Area                          | Recommendation                                                | Priority |
+|-------------------------------|---------------------------------------------------------------|----------|
+| **Key management**            | Store all HMAC shared secrets and signing keys in HashiCorp Vault or a hardware HSM; rotate keys on a 90-day cycle | Critical |
+| **mTLS for uplink**           | Require mutual TLS between the edge node and the control center for uplink commands; reject unsigned commands | Critical |
+| **Rate limiting**             | Enforce a configurable token-bucket rate limiter per `drone_id` (e.g., 10 submissions/min); excess submissions are queued or rejected with backpressure | High |
+| **Graceful shutdown**         | On SIGTERM, finish the in-flight submission, flush pending stats to Prometheus, persist the quarantine set, and close the Stage 0 UDP socket cleanly | High |
+| **Health-check endpoint**     | Expose an HTTP `/healthz` endpoint returning pipeline state (up/degraded/down), device registry size, and uplink connectivity status; used by systemd/K3s liveness probes | High |
+| **State persistence**         | All mutable runtime state (device registry, quarantine set, zone risk map) must be persisted to SQLite or Redis so that no security-critical data is lost on process restart | Critical |
+| **Log retention and rotation**| Ship structured JSON logs to Grafana Loki or ELK; retain at minimum 90 days for forensic audit; rotate local log files at 100 MB | Medium |
+| **Backup and recovery**       | Daily automated backup of the device registry and quarantine database; tested restore procedure documented in the runbook | Medium |
+| **Resource limits**           | Set `ulimit -n` (open files), memory cgroup limits, and CPU quotas; prevents a bug or attack from exhausting the edge node | Medium |
+| **Firmware allowlisting**     | Maintain a whitelist of approved `firmware_version` values; flag or reject submissions from drones running unrecognized firmware | Medium |
+
 ---
 
 ## 11. Configuration Reference
@@ -2064,13 +2191,18 @@ exe, dll, bat, cmd, ps1, sh, vbs, js, msi, scr, com
 
 ### 13.2 Scalability Considerations
 
-| Aspect                  | Current Design                  | Production Path                            |
-|-------------------------|---------------------------------|--------------------------------------------|
-| Concurrency             | Sequential processing           | asyncio / thread pool for I/O-bound ops    |
-| Device registry         | In-memory dict or JSON file     | Database (PostgreSQL/Redis) or API service  |
-| Uplink transport        | Memory queue or file polling    | gRPC bidirectional streaming or MQTT        |
-| Artifact storage        | Local filesystem / URI pointers | S3/MinIO with pre-signed URLs              |
-| Checksum verification   | Local file access only          | Remote hash verification API               |
+| Aspect                  | Current (Dev/Demo)              | Production Recommendation                  | Rationale                                      |
+|-------------------------|---------------------------------|--------------------------------------------|------------------------------------------------|
+| Concurrency             | Sequential processing           | asyncio / thread pool for I/O-bound ops    | Checksum I/O and network uplink must not block pipeline |
+| Device registry         | In-memory dict or JSON file     | SQLite (edge) / PostgreSQL (centralized)   | ACID persistence; survives restarts; shared across nodes |
+| Uplink transport        | Memory queue or file polling    | MQTT 5.0 over TLS or gRPC bidirectional    | At-least-once delivery; connection health monitoring |
+| Artifact storage        | Local filesystem (`drone_remote_store/`) | MinIO (edge S3) with cloud S3 replication | Versioning, pre-signed URLs, erasure coding    |
+| Checksum verification   | Local file access only          | MinIO S3 API + ETag / content-hash header  | Avoid direct filesystem reads in object-store world |
+| Zone risk / quarantine  | In-memory dict / set            | Redis (sub-ms reads, persistence via AOF)  | Must survive restarts; shared state across processes |
+| HMAC key material       | In-memory dict                  | HashiCorp Vault or hardware HSM            | Keys must never reside unencrypted on disk     |
+| Processing stats        | In-memory counters              | Prometheus exporter + Grafana dashboards   | Historical trending, alerting, SLA monitoring  |
+| Audit logs              | Python `logging` to stdout      | Structured JSON logs → ELK stack or Loki   | Centralized search, retention policies, forensics |
+| Rate limiting           | None                            | Token-bucket per `drone_id` (Redis-backed) | Prevent single drone from flooding the pipeline |
 
 ### 13.3 Resource Bounds
 
@@ -2238,7 +2370,22 @@ and maintainable as the schema evolves.
 |----------------|------------------------------|-------------------------------------------------|
 | **Standalone** | Testing, development         | In-memory registry, memory uplink, filesystem    |
 | **File-backed**| Demo, integration testing    | JSON file registry, file-based uplink polling    |
-| **Production** | Field deployment             | Database registry, gRPC/MQTT uplink, S3 storage  |
+| **Production** | Field deployment             | See production stack below                       |
+
+**Production stack (recommended for field deployment):**
+
+| Layer               | Technology                        | Purpose                                         |
+|---------------------|-----------------------------------|-------------------------------------------------|
+| Device registry     | SQLite 3.x (WAL mode)            | ACID-persistent device state on edge node        |
+| Fleet registry      | PostgreSQL 15+                    | Centralized fleet management (multi-node)        |
+| Artifact object store | MinIO (edge) + S3 (cloud)       | Versioned, S3-compatible, erasure-coded storage  |
+| Command transport   | MQTT 5.0 (Mosquitto/EMQX) over TLS | At-least-once delivery; retained messages      |
+| Command persistence | Redis 7+ (AOF persistence)        | Survives restart; sub-ms reads for quarantine    |
+| Key management      | HashiCorp Vault (auto-unseal)     | Centralized secrets; dynamic per-drone keys      |
+| Metrics             | Prometheus + Grafana              | Time-series; alerting on flag ratios and drop rates |
+| Logs                | Structured JSON → Grafana Loki    | Centralized search; 90-day retention minimum     |
+| Container runtime   | Docker / Podman                   | Reproducible deployment; resource limits         |
+| Orchestration       | systemd (single node) or K3s (multi-node) | Restart policy, health checks, rolling updates |
 
 ### 16.3 Monitoring and Observability
 
@@ -2283,6 +2430,23 @@ the `IngestionInterceptor` constructor. Dynamic configuration updates are
 supported via the `UPDATE_CONFIG` uplink command (reserved for future
 implementation).
 
+**Production configuration loading priority (highest wins):**
+1. Environment variables (e.g., `II_REQUIRE_SIGNATURE=true`)
+2. YAML/JSON config file (`/etc/ingestion-interceptor/config.yaml`)
+3. Dataclass defaults in `InterceptorConfig`
+
+**Production-recommended overrides:**
+
+| Parameter                 | Dev Default          | Production Override           | Reason                                    |
+|---------------------------|----------------------|-------------------------------|-------------------------------------------|
+| `require_signature`       | `False`              | `True`                        | Reject unsigned submissions in the field   |
+| `unknown_device_policy`   | `"flag"`             | `"reject"`                    | Unknown drones must not enter the pipeline |
+| `storage_backend`         | `"filesystem"`       | `"minio"`                     | S3-compatible object store with versioning |
+| `uplink_enabled`          | `False`              | `True`                        | Enable real-time command channel            |
+| `packet_hmac_required`    | `True`               | `True`                        | Already correct; never weaken              |
+| `log_level`               | `"INFO"`             | `"INFO"` (or `"WARNING"` under load) | Reduce log volume if needed         |
+| `structured_logging`      | `True`               | `True`                        | Required for log aggregation               |
+
 ---
 
 ## 17. Risk Assessment
@@ -2293,7 +2457,7 @@ implementation).
 | R-2  | Malware hidden in encrypted archive                      | High       | Critical | `encrypted_payload` + `nested_archive` flags; deferred to sandbox |
 | R-3  | Double-extension evasion (photo.jpg.exe)                 | Medium     | High     | `double_extension` + `executable_file` flags                 |
 | R-4  | MIME type spoofing                                       | Medium     | High     | `mime_extension_mismatch` + `suspicious_mime` flags          |
-| R-5  | Submission flooding (DoS)                                | Medium     | High     | Payload count and size limits; future: per-device rate limiting |
+| R-5  | Submission flooding (DoS)                                | Medium     | High     | Payload count and size limits; production: Redis-backed token-bucket rate limiter per `drone_id` |
 | R-6  | Path traversal in filenames                              | Medium     | Critical | Reject filenames containing `/` or `\`                       |
 | R-7  | Prototype pollution via metadata                         | Low        | High     | Strip `__proto__`, `constructor`, etc. from additional metadata |
 | R-8  | Compromised drone continues submitting                   | Medium     | Critical | Uplink `REVOKE_DEVICE` command for immediate revocation      |
@@ -2302,7 +2466,7 @@ implementation).
 | R-11 | Telemetry spoofing by compromised firmware               | Medium     | Medium   | Telemetry anomaly detection (negative speed, invalid battery)|
 | R-12 | Large binary exhausts processing resources               | Low        | Medium   | `large_binary` flag + configurable threshold; streaming checksums |
 | R-13 | Replay attack with old valid submission                  | Low        | Medium   | Timestamp validation with future-time warning; future: nonce tracking |
-| R-14 | In-memory registry lost on process restart               | Medium     | Medium   | File-backed registry mode; production: database backend      |
+| R-14 | In-memory registry lost on process restart               | Medium     | High     | File-backed registry mode; production: SQLite (edge) or PostgreSQL (centralized) |
 | R-15 | Uplink command injection by adversary                    | Low        | Critical | Uplink channel authentication; command ID tracking           |
 | R-16 | Wire-level packet replay (pcap capture and replay)       | Medium     | High     | Per-session monotonic seq; receiver drops duplicate seq within an active session |
 | R-17 | Packet tampering / MITM injection                        | Medium     | Critical | Per-packet HMAC-SHA256 verified before any state mutation     |
@@ -2333,13 +2497,18 @@ implementation).
 | **v3.0** | Stage 0 unit tests (47 new tests) | Done |
 | **Phase 2** | Ed25519 asymmetric signature verification | Planned |
 | **Phase 2** | mTLS authentication for drone-to-edge communication | Planned |
-| **Phase 2** | Rate limiting per drone_id (flood attack prevention) | Planned |
+| **Phase 2** | Redis-backed token-bucket rate limiter per `drone_id` | Planned |
 | **Phase 2** | Firmware version whitelisting | Planned |
+| **Phase 2** | SQLite-backed device registry and quarantine persistence | Planned |
+| **Phase 2** | HashiCorp Vault integration for HMAC key management | Planned |
+| **Phase 2** | Health-check HTTP endpoint (`/healthz`) for liveness probes | Planned |
+| **Phase 2** | Graceful shutdown (SIGTERM handler: flush stats, persist state, close sockets) | Planned |
 | **Phase 3** | Async processing with asyncio for high-throughput | Planned |
-| **Phase 3** | Redis/Kafka integration for distributed command queuing | Planned |
-| **Phase 3** | Real S3/MinIO storage backend integration | Planned |
-| **Phase 3** | gRPC/MQTT uplink channel (replace file/memory modes) | Planned |
-| **Phase 3** | Prometheus metrics export for monitoring | Planned |
+| **Phase 3** | MQTT 5.0 uplink channel over TLS (replace file/memory modes) | Planned |
+| **Phase 3** | MinIO edge object store for artifact storage (replace filesystem) | Planned |
+| **Phase 3** | Prometheus exporter + Grafana dashboards for metrics | Planned |
+| **Phase 3** | Structured JSON logging to Grafana Loki with 90-day retention | Planned |
+| **Phase 3** | Docker/Podman containerization with resource limits | Planned |
 
 ---
 

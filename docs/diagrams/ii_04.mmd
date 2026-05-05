@@ -1,0 +1,23 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '17px'}}}%%
+flowchart TB
+    subgraph AUTH["<b>Authenticator</b><br/>(orchestration layer)"]
+        direction LR
+        subgraph DR["<b>DeviceRegistry</b>"]
+            direction TB
+            L["lookup(drone_id)"]
+            R["register_device()"]
+            RV["revoke_device()"]
+            LD["list_devices()"]
+            BK["<i>Backends:</i><br/>In-memory dict<br/>JSON file"]
+        end
+        subgraph SV["<b>SignatureVerifier</b>"]
+            direction TB
+            VER["verify(drone_id, signature,<br/>payload_hash)"]
+            SCH["Schemes: HMAC-SHA256<br/>(Ed25519 planned)"]
+            KS["Key store:<br/>drone_id &rarr; secret"]
+        end
+    end
+
+    style AUTH fill:#E3F2FD,stroke:#1565C0,stroke-width:2px
+    style DR fill:#E8F5E9,stroke:#388E3C,stroke-width:2px
+    style SV fill:#FFF9C4,stroke:#F9A825,stroke-width:2px

@@ -1,0 +1,33 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '16px'}}}%%
+flowchart TB
+    SA["<b>SandboxAnalyzer</b><br/>(analyzer.py)<br/><i>orchestrates all 8 stages</i>"]:::main
+
+    RT["route_file<br/>(router.py)"]
+    AR["handle_archive<br/>(archive_handler.py)"]
+    EX["execute_file<br/>(execution.py)"]
+    MON["FileSystem / Network /<br/>Process / Privilege Monitor<br/>(monitors.py)"]
+    SC["compute_risk_score<br/>(scoring.py)"]
+    VER["determine_verdict<br/>(verdict.py)"]
+
+    IOC["<b>ThreatIntelClient</b><br/>(ioc.py)<br/><i>LocalThreatIntelClient → swap<br/>for Correlator / VT / OTX / MISP</i>"]:::seam
+    FB["<b>FeedbackSink</b><br/>(feedback.py)<br/><i>LoggingFeedbackSink → bridge to<br/>Response Mgr / Dashboard / ML</i>"]:::seam
+
+    CFG["SandboxConfig<br/>(config.py)"]:::cfg
+    MOD["models.py<br/><i>SandboxReport, MonitorEvent,<br/>ScoreBreakdown, …</i>"]:::mod
+
+    SA --> RT
+    SA --> AR
+    SA --> EX
+    SA --> MON
+    SA --> SC
+    SA --> VER
+    SA --> IOC
+    SA --> FB
+
+    CFG -.->|"tunables"| SA
+    MOD -.->|"typed payloads"| SA
+
+    classDef main fill:#BBDEFB,stroke:#0D47A1,stroke-width:3px
+    classDef seam fill:#FFE0B2,stroke:#E65100,stroke-width:2px
+    classDef cfg fill:#FFF9C4,stroke:#F9A825,stroke-width:2px
+    classDef mod fill:#E8F5E9,stroke:#388E3C,stroke-width:2px

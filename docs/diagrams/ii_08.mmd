@@ -1,0 +1,33 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '16px'}, 'sequence': {'mirrorActors': false}}}%%
+sequenceDiagram
+    participant I as Interceptor
+    participant A as Authenticator
+    participant DR as DeviceRegistry
+    participant SV as SignatureVerifier
+
+    I->>A: authenticate(drone_id, signature, payload_hash)
+    A->>DR: lookup(drone_id)
+
+    alt CASE 1: Not Found
+        DR-->>A: None
+        alt policy == "reject"
+            A-->>I: AuthResult(status="rejected")
+        else policy == "flag" / "allow"
+            A-->>I: AuthResult(status="unknown")
+        end
+    else CASE 2: Found but Revoked
+        DR-->>A: {revoked: True}
+        A-->>I: AuthResult(status="rejected")
+    else CASE 3: Found and Active
+        DR-->>A: {trusted, reputation}
+        opt signature provided
+            A->>SV: verify(drone_id, signature, hash)
+            SV-->>A: {valid, reason}
+            alt valid
+                Note over A: status = "authenticated"
+            else not valid
+                Note over A: trusted=False, status="untrusted"
+            end
+        end
+        A-->>I: AuthResult(status, reputation, trusted)
+    end

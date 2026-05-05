@@ -1,0 +1,84 @@
+\begin{thebibliography}{10}
+
+\bibitem{bayer2009scalable}
+U.~Bayer, P.~M. Comparetti, C.~Hlauschek, C.~Kruegel, and E.~Kirda, ``Scalable,
+  behavior-based malware clustering,'' in {\em Proceedings of the Network and
+  Distributed System Security Symposium (NDSS)}, pp.~8--11, 2009.
+
+\bibitem{baksi2021game}
+R.~P. Baksi and S.~Upadhyaya, ``Game theoretic analysis of ransomware: A
+  preliminary study,'' in {\em Proceedings of the 6th International Conference
+  on Information Systems Security and Privacy (ICISSP)}, SciTePress, 2021.
+\newblock Department of Computer Science \& Engineering, University at Buffalo,
+  SUNY.
+
+\bibitem{michailidis2022secure}
+E.~T. Michailidis, K.~Maliatsos, D.~N. Skoutas, D.~Vouyioukas, and C.~Skianis,
+  ``Secure uav-aided mobile edge computing for iot: A review,'' {\em IEEE
+  Access}, vol.~10, pp.~86353--86383, 2022.
+
+\bibitem{buczak2016survey}
+A.~L. Buczak and E.~Guven, ``A survey of data mining and machine learning
+  methods for cyber security intrusion detection,'' {\em IEEE Communications
+  Surveys \& Tutorials}, vol.~18, no.~2, pp.~1153--1176, 2016.
+
+\bibitem{kamhoua2021game}
+C.~A. Kamhoua, C.~D. Kiekintveld, F.~Fang, and Q.~Zhu, {\em Game Theory and
+  Machine Learning for Cyber Security}.
+\newblock John Wiley \& Sons, 2021.
+
+\bibitem{yaacoub2020security}
+J.-P. Yaacoub, H.~Noura, O.~Salman, and A.~Chehab, ``Security analysis of drone
+  systems: Attacks, limitations, and recommendations,'' {\em Internet of
+  Things}, vol.~11, p.~100218, 2020.
+
+\bibitem{cozzi2018understanding}
+E.~Cozzi, M.~Graziano, Y.~Fratantonio, and D.~Balzarotti, ``Understanding
+  {Linux} malware,'' in {\em Proceedings of the IEEE Symposium on Security and
+  Privacy (S\&P)}, pp.~161--175, 2018.
+
+\bibitem{guven2024dynamic}
+M.~Guven, ``Dynamic malware analysis using a sandbox environment, network
+  traffic logs, and artificial intelligence,'' {\em International Journal of
+  Computational and Experimental Science and Engineering (IJCESEN)}, 2024.
+
+\bibitem{hpwolf2022archive}
+{HP Wolf Security}, ``{HP Wolf Security} threat insights report q4 2022:
+  Archives overtake {Office} files as top malware delivery vector.''
+  \url{https://threatresearch.ext.hp.com/hp-wolf-security-threat-insights-report-q4-2022/},
+  2022.
+
+\bibitem{mitre_attack}
+{The MITRE Corporation}, ``{MITRE ATT\&CK} framework.''
+  \url{https://attack.mitre.org}, 2024.
+
+\bibitem{tavabi2018darkembed}
+N.~Tavabi, P.~Goyal, M.~Almukaynizi, P.~Shakarian, and K.~Lerman,
+  ``{DarkEmbed}: Exploit prediction with neural language models,'' in {\em
+  Proceedings of the AAAI Conference on Artificial Intelligence}, 2018.
+
+\bibitem{pearl1988bayesian}
+J.~Pearl, {\em Probabilistic Reasoning in Intelligent Systems: Networks of
+  Plausible Inference}.
+\newblock Morgan Kaufmann, 1988.
+
+\bibitem{tambe2011security}
+M.~Tambe, {\em Security and Game Theory: Algorithms, Deployed Systems, Lessons
+  Learned}.
+\newblock Cambridge University Press, 2011.
+
+\bibitem{nguyen2021bayesian}
+T.~Nguyen and Q.~Zhu, ``A bayesian-based trust model for cybersecurity in
+  intelligent transportation systems,'' {\em IEEE Internet of Things Journal},
+  vol.~8, no.~12, pp.~10015--10028, 2021.
+
+\bibitem{widmer1996learning}
+G.~Widmer and M.~Kubat, ``Learning in the presence of concept drift and hidden
+  contexts,'' {\em Machine Learning}, vol.~23, pp.~69--101, 1996.
+
+\bibitem{cisa_iocs}
+{Cybersecurity and Infrastructure Security Agency}, ``Indicators of compromise
+  (ioc).'' \url{https://www.cisa.gov/topics/cyber-threats-and-advisories},
+  2024.
+
+\end{thebibliography}

@@ -1,0 +1,11 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '16px'}, 'sequence': {'mirrorActors': false}}}%%
+sequenceDiagram
+    participant C as Caller
+    participant I as Interceptor
+    participant V as Validator
+
+    C->>I: process({"drone_id": ""})
+    I->>V: validate_submission()
+    V-->>I: errors=["invalid_drone_id:..."]
+    Note over I: stats["total_rejected"] += 1
+    I-->>C: IngestResult(success=False, errors=[...])

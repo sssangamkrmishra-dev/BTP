@@ -231,7 +231,11 @@ class PdfHandler(BaseHandler):
                 annots = page["/Annots"]
                 try:
                     for i, annot in enumerate(annots):
-                        annot_obj = annot if not hasattr(annot, 'resolve') else annot
+                        # Resolve indirect references (pikepdf returns
+                        # Object proxies for indirect refs); the previous
+                        # version of this line was a no-op tautology that
+                        # silently missed annotations stored as references.
+                        annot_obj = annot.resolve() if hasattr(annot, "resolve") else annot
                         if "/A" in annot_obj:
                             action = annot_obj["/A"]
                             action_type = str(action.get("/S", ""))

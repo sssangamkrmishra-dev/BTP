@@ -1,0 +1,13 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '16px'}}}%%
+flowchart TB
+    PDF(["PDF File"])
+    subgraph STEPS[" "]
+        direction LR
+        S1["<b>1. Strip Catalog</b><br/>/JavaScript, /OpenAction,<br/>/Launch, /SubmitForm,<br/>/EmbeddedFiles, /XFA"]
+        S2["<b>2. Strip Page Actions</b><br/>/AA per page,<br/>annotation actions"]
+        S3["<b>3. Clean DocInfo</b><br/>strip: clear all<br/>selective: safe keys"]
+        S4["<b>4. Scan Streams</b><br/>JS, shellcode, heap spray,<br/>PowerShell, PE headers"]
+        S1 --> S2 --> S3 --> S4
+    end
+    PDF --> STEPS
+    style STEPS fill:none,stroke:none

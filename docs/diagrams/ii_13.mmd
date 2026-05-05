@@ -1,0 +1,24 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '18px'}}}%%
+flowchart TB
+    subgraph INPUTS["Inputs from IngestResult"]
+        direction LR
+        IF["insecure_flags"]
+        REP["reputation R"]
+        ZR["zone_risk Z"]
+        FS["artifact sizes"]
+        MS["mission_sensitivity"]
+    end
+
+    subgraph COMP["Computation"]
+        direction LR
+        IB["I_base"] --> IP["I' = I_base x sensitivity"] --> TS["T_S = Stackelberg(I', R, Z)"]
+    end
+
+    subgraph OUT["Output: T_S"]
+        direction LR
+        LO["<b>Low</b> &lt; 0.4<br/>Signature only"]
+        ME["<b>Medium</b> 0.4-0.7<br/>Sig + AI/ML"]
+        HI["<b>High</b> &ge; 0.7<br/>Full inspection"]
+    end
+
+    INPUTS --> COMP --> OUT

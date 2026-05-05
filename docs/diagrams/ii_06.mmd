@@ -1,0 +1,32 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '14px'}}}%%
+flowchart TB
+    subgraph RB["<b>ReassemblyBuffer</b>"]
+        direction TB
+        RB1["<i>Per-session reassembly state</i><br/>Keyed by (drone_id, session_id)"]
+        RB2["chunks: dict[seq &rarr; bytes]<br/>total_chunks: int (set in SESSION_START)<br/>started_at: float (for timeout)"]
+        RB3["add_chunk(seq, payload) &rarr; bool<br/>is_complete() &rarr; bool<br/>is_expired(timeout) &rarr; bool<br/>assemble() &rarr; bytes"]
+        RB1 --- RB2 --- RB3
+    end
+
+    subgraph PR["<b>PacketReceiver</b>"]
+        direction TB
+        PR1["<i>UDP socket listener</i><br/>(daemon thread)"]
+        PR2["start() / stop()<br/>bound_address (property)<br/>update_key_store()<br/>on_submission callback"]
+        PR3["<i>Internals:</i><br/>_listen_loop · _handle_packet<br/>_handle_session_start / _chunk / _session_end<br/>_finalize_session · _gc_expired_sessions"]
+        PR1 --- PR2 --- PR3
+    end
+
+    subgraph PRS["<b>PacketReceiverStats</b>"]
+        direction TB
+        PRS1["<i>Counters surfaced via</i><br/><i>interceptor.packet_stats</i>"]
+        PRS2["packets_received<br/>packets_dropped_malformed<br/>packets_dropped_hmac<br/>packets_dropped_unknown_drone<br/>packets_dropped_replay<br/>packets_dropped_orphaned<br/>packets_dropped_session_overflow"]
+        PRS3["sessions_started · sessions_completed<br/>sessions_expired · sessions_truncated<br/>submissions_decoded<br/>submissions_decode_failed"]
+        PRS1 --- PRS2 --- PRS3
+    end
+
+    PR -.->|"creates per session"| RB
+    PR -.->|"updates"| PRS
+
+    style RB fill:#E8F5E9,stroke:#388E3C,stroke-width:2px
+    style PR fill:#E3F2FD,stroke:#1565C0,stroke-width:2px
+    style PRS fill:#FFF9C4,stroke:#F9A825,stroke-width:2px

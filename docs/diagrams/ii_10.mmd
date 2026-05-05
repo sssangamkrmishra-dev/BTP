@@ -1,0 +1,46 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '15px'}, 'sequence': {'mirrorActors': false, 'width': 220}}}%%
+sequenceDiagram
+    participant D as Drone Platform
+    participant PR as PacketReceiver
+    participant RB as ReassemblyBuffer
+    participant P as process()
+
+    Note over D: encode_submission then fragment into N chunks
+
+    D->>PR: SESSION_START (session_id, total=N)
+    activate PR
+    PR->>PR: decode_packet_unverified()
+    PR->>PR: lookup HMAC key by drone_id
+    PR->>PR: verify_hmac()
+    PR->>RB: create ReassemblyBuffer
+    activate RB
+
+    D->>PR: CHUNK seq=0
+    PR->>PR: decode and verify HMAC
+    PR->>RB: add_chunk(0, payload)
+
+    D->>PR: CHUNK seq=1
+    PR->>PR: decode and verify HMAC
+    PR->>RB: add_chunk(1, payload)
+
+    Note over D,RB: ... more CHUNKs ...
+
+    D->>PR: CHUNK seq=N-1
+    PR->>RB: add_chunk(N-1, payload)
+    RB-->>PR: is_complete returns True
+
+    rect rgb(232, 245, 233)
+    Note over PR,P: EAGER FINALIZATION
+    PR->>RB: pop session
+    deactivate RB
+    PR->>PR: assemble() to bytes
+    PR->>PR: decode_submission() to dict
+    PR->>P: on_submission(dict)
+    activate P
+    Note over P: process() runs Stages 1 through 7
+    deactivate P
+    end
+
+    D->>PR: SESSION_END
+    Note over PR: session_id unknown - benign late END (no error, no count)
+    deactivate PR

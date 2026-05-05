@@ -1,0 +1,27 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '14px'}, 'sequence': {'mirrorActors': false}}}%%
+sequenceDiagram
+    autonumber
+    participant C as Caller
+    participant A as SandboxAnalyzer
+    participant R as Router
+    participant E as execute_file
+    participant M as Monitors
+    participant TI as TIClient
+    participant S as Scoring
+    participant F as FeedbackSink
+
+    C->>A: analyze(script, drone_id)
+    A->>R: route_file()
+    R-->>A: SCRIPT / EXECUTABLE
+    A->>E: subprocess.Popen + preexec setrlimit
+    E->>A: on_pid(pid)
+    A->>M: build_monitors(pid, log, config)
+    loop every poll_interval_seconds (default 200 ms)
+        M->>M: poll /proc + psutil
+    end
+    E-->>A: stdout / stderr / exit_code
+    A->>S: compute_risk_score(events)
+    A->>TI: query(file_hash, ips, domains)
+    TI-->>A: IOCResult
+    A->>F: dispatch feedback
+    A-->>C: SandboxReport

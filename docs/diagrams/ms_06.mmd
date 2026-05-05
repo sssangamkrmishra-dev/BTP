@@ -1,0 +1,19 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '16px'}}}%%
+flowchart LR
+    IMG(["Image File"]) --> CHECK{"piexif?"}
+
+    CHECK -->|"YES"| YES
+    CHECK -->|"NO"| NO
+
+    subgraph YES["Surgical Removal"]
+        direction LR
+        Y1["Load EXIF"] --> Y2["Match rules"] --> Y3["Delete tags"] --> Y4["Re-insert"]
+    end
+
+    subgraph NO["Pillow Fallback"]
+        direction LR
+        N1["Copy pixels"] --> N2["Re-save<br/>without EXIF"]
+    end
+
+    style YES fill:#E8F5E9,stroke:#388E3C
+    style NO fill:#FFF3E0,stroke:#EF6C00

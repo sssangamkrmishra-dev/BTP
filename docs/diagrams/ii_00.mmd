@@ -1,0 +1,45 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '16px'}}}%%
+flowchart LR
+    subgraph L1["LAYER 1<br/>DRONE / RPA"]
+        DRONE["Drone / RPA<br/>video, images,<br/>telemetry, metadata"]
+    end
+
+    subgraph L2["LAYER 2 : EDGE MALWARE DETECTION ENGINE"]
+        direction TB
+        subgraph ROW1[" "]
+            direction LR
+            M1["<b>M1: Ingestion<br/>Interceptor</b>"]:::thismod
+            M2["M2: Metadata<br/>Extractor"]
+            M3["M3: Game-Theoretic<br/>Threat Estimator"]
+            M4["M4: Inspection<br/>Strategy Selector"]
+            M1 -->|"IngestResult"| M2 --> M3 -->|"T_S"| M4
+        end
+        subgraph ROW2[" "]
+            direction LR
+            M5["M5: Multi-Layer<br/>Malware Detection"]
+            M6["M6: Metadata<br/>Sanitizer"]
+            M7["M7: Threat Intel<br/>Correlator"]
+            M8["M8: Response &amp;<br/>Quarantine Mgr"]
+            M5 --> M6 --> M7 --> M8
+        end
+        ROW1 -->|"inspection level"| ROW2
+    end
+
+    subgraph L3["LAYER 3<br/>LOGGING &amp;<br/>FEEDBACK"]
+        direction TB
+        M9["M9: Security<br/>Dashboard"]
+        GCC["<b>Ground Control<br/>Center</b>"]:::gcc
+        M9 <-->|"packets<br/>(MQTT / gRPC<br/>over TLS)"| GCC
+    end
+
+    DRONE --> M1
+    M8 --> M9
+    M9 -.->|"Uplink cmds"| M1
+
+    classDef thismod fill:#BBDEFB,stroke:#0D47A1,stroke-width:3px
+    classDef gcc fill:#E8F5E9,stroke:#388E3C,stroke-width:2px
+    style L1 fill:#E8F5E9,stroke:#2E7D32,stroke-width:2px
+    style L2 fill:#FFF8E1,stroke:#F57F17,stroke-width:2px
+    style L3 fill:#F3E5F5,stroke:#7B1FA2,stroke-width:2px
+    style ROW1 fill:none,stroke:none
+    style ROW2 fill:none,stroke:none

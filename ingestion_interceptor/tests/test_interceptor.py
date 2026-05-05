@@ -247,6 +247,26 @@ class TestInterceptorPipeline(unittest.TestCase):
         self.assertEqual(interceptor.stats["total_processed"], 1)
         self.assertEqual(interceptor.stats["total_rejected"], 1)
 
+    def test_telemetry_anomalies_become_security_flags(self):
+        # FR-19: telemetry anomalies (negative speed, invalid battery,
+        # signal/heading out of range) must surface as security flags
+        # so the threat estimator and dashboard see them.
+        interceptor = self._make_interceptor()
+        result = interceptor.process(_make_sample({
+            "telemetry": {
+                "speed": -5.0,        # negative_speed
+                "battery": 120.0,     # invalid_battery_level
+                "signal_strength": -1, # invalid_signal_strength
+                "heading": 400.0,     # invalid_heading
+            },
+        }))
+        self.assertTrue(result.success)
+        flags = result.ingest_metadata.insecure_flags
+        self.assertIn("telemetry_negative_speed", flags)
+        self.assertIn("telemetry_invalid_battery_level", flags)
+        self.assertIn("telemetry_invalid_signal_strength", flags)
+        self.assertIn("telemetry_invalid_heading", flags)
+
 
 class TestUplink(unittest.TestCase):
 

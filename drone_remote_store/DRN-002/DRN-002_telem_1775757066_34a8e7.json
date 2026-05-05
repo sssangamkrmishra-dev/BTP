@@ -1,0 +1,27 @@
+{
+  "drone_id": "DRN-002",
+  "timestamp": "2026-04-09T17:51:06.228336+00:00",
+  "position": {
+    "lat": 83.628466,
+    "lon": 105.962687,
+    "alt": 150
+  },
+  "telemetry": {
+    "speed": 12.0,
+    "heading": 209.2,
+    "battery": 178.9,
+    "signal_strength": 0.0,
+    "vertical_speed": 0.0,
+    "temperature": 25.0,
+    "distance_from_home": 8124888.6
+  },
+  "status": "emergency",
+  "uptime_sec": 7874.0,
+  "total_distance_m": 94488.0,
+  "payloads_captured": 0,
+  "firmware": "v1.1.9",
+  "warnings": [
+    "LOW_BATTERY",
+    "CRITICAL_BATTERY"
+  ]
+}

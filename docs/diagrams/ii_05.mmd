@@ -1,0 +1,11 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '16px'}}}%%
+flowchart LR
+    CC["<b>Control Center /<br/>Security Dashboard</b><br/><br/>Dispatches:<br/>Quarantine · Release<br/>Revoke Device<br/>Update Zone Risk<br/>Update Config<br/>Force Rescan"]
+    UR["<b>UplinkReceiver</b><br/><br/><i>Modes:</i><br/>memory (unit testing)<br/>file (JSON file watch)<br/>gRPC (production)<br/>MQTT (production)<br/><br/>Queue + acknowledgement"]
+    UCH["<b>UplinkCommandHandler</b><br/><br/><i>Dispatch table:</i><br/>QUARANTINE &rarr; add to set<br/>RELEASE &rarr; remove<br/>REVOKE &rarr; registry mut<br/>ZONE_RISK &rarr; risk map mut"]
+
+    CC -->|"commands"| UR --> UCH
+
+    style CC fill:#E3F2FD,stroke:#1565C0,stroke-width:2px
+    style UR fill:#FFF9C4,stroke:#F9A825,stroke-width:2px
+    style UCH fill:#E8F5E9,stroke:#388E3C,stroke-width:2px

@@ -1,0 +1,37 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '16px'}}}%%
+flowchart TB
+    DRONE["<b>Drone / RPA</b><br/>payload + metadata"]:::ext
+
+    subgraph EDGE["EDGE MALWARE DETECTION ENGINE"]
+        direction TB
+        II["Ingestion Interceptor"]
+        GTE["Game-Theoretic Threat Estimator"]
+        ISS{"Inspection Strategy<br/>Selector"}:::decision
+
+        subgraph LAYER3["Multi-Layer Malware Detection"]
+            direction LR
+            SIG["Signature Scanner<br/>(LOW)"]
+            MLC["AI/ML Classifier<br/>(MEDIUM)"]
+            SBX["<b>Sandbox Analyzer</b><br/>(HIGH)"]:::thismod
+        end
+
+        MS["Metadata Sanitizer"]
+        TIC["Threat Intelligence<br/>Correlator"]
+        RM["Response &amp;<br/>Quarantine Manager"]
+        DASH["Security Dashboard<br/>&amp; Feedback Loop"]
+
+        II --> GTE --> ISS
+        ISS -->|"T_S LOW"| SIG
+        ISS -->|"T_S MED"| MLC
+        ISS -->|"T_S HIGH"| SBX
+        LAYER3 --> MS --> TIC --> RM --> DASH
+        RM -.->|"verdict feedback"| SBX
+    end
+
+    DRONE --> II
+
+    classDef thismod fill:#BBDEFB,stroke:#0D47A1,stroke-width:3px
+    classDef ext fill:#E8F5E9,stroke:#388E3C,stroke-width:2px
+    classDef decision fill:#FFE0B2,stroke:#E65100,stroke-width:2px
+    style EDGE fill:#FFF8E1,stroke:#F57F17,stroke-width:2px
+    style LAYER3 fill:#E3F2FD,stroke:#1565C0,stroke-width:2px

@@ -1,0 +1,9 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '18px'}}}%%
+flowchart LR
+    subgraph EDGE["Edge Node"]
+        direction LR
+        II["Ingestion Interceptor"]
+        MS["Metadata Sanitizer"]
+        SHARED[("drone_remote_store/")]
+        II --> MS --> SHARED
+    end

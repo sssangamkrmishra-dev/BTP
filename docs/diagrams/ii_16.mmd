@@ -1,0 +1,18 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '18px'}}}%%
+flowchart TB
+    subgraph EDGE["EDGE DEPLOYMENT NODE"]
+        subgraph IIP["Ingestion Interceptor Process"]
+            PIPE["Interceptor<br/>Pipeline"]
+            REG["Device<br/>Registry"]
+            ULR["Uplink Receiver<br/>(gRPC/MQTT)"]
+            LS[("Local Store<br/>(artifacts)")]
+            PIPE --> LS
+        end
+        TE["Threat Estimator +<br/>Detection Engine"]
+        IIP -->|"IngestResult"| TE
+    end
+
+    CC["Control Center /<br/>Security Dashboard"]
+    ULR <-.->|"Secure Network Link"| CC
+
+    style EDGE fill:#F3E5F5,stroke:#7B1FA2,stroke-width:2px

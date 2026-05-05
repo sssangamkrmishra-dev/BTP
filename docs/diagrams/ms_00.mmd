@@ -1,0 +1,31 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '16px'}}}%%
+flowchart TB
+    DRONE["<b>DRONE / RPA</b>"]
+
+    subgraph EDGE["EDGE DEPLOYMENT NODE<br/><i>(all modules run in-process)</i>"]
+        direction TB
+        II["<b>Ingestion Interceptor</b>"]
+        GTE["<b>Game-Theoretic Estimator</b><br/>T_S (0-1)"]
+        ISS["<b>Inspection Strategy<br/>Selector</b>"]
+        MDE["<b>Malware Detection</b><br/>Sig + ML + Sandbox"]
+        subgraph MS["<b>METADATA SANITIZER</b>"]
+            direction LR
+            IH["Image"] --- VH["Video"] --- PH["PDF"]
+            AH["Archive"] --- TH["Text"]
+        end
+        TIC["<b>Threat Intel Correlator</b>"]
+        RQM["<b>Response &amp; Quarantine</b>"]
+        DASH["<b>Security Dashboard</b>"]
+
+        II -->|"IngestResult"| GTE -->|"T_S"| ISS -->|"inspection level"| MDE -->|"passed"| MS -->|"cleaned"| TIC --> RQM --> DASH
+        DASH -.->|"Uplink cmds"| II
+    end
+
+    GCC["<b>Ground Control<br/>Center</b>"]:::gcc
+
+    DRONE -->|"native protocol /<br/>Stage 0 UDP"| II
+    DASH <-->|"packets<br/>(MQTT / gRPC over TLS)"| GCC
+
+    style EDGE fill:#FFF8E1,stroke:#F57F17,stroke-width:2px
+    style MS fill:#FFF9C4,stroke:#F9A825,stroke-width:2px
+    classDef gcc fill:#E8F5E9,stroke:#388E3C,stroke-width:2px

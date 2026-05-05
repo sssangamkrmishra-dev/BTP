@@ -1,0 +1,21 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '16px'}}}%%
+flowchart TB
+    subgraph MS["<b>MetadataSanitizer</b> (sanitizer.py)"]
+        direction TB
+        MR["Mode<br/>Resolver"] & SPR["Storage Pointer<br/>Resolver"] & ST["Statistics<br/>Tracker"]
+        subgraph HR["Handler Registry"]
+            direction LR
+            MIME["MIME type"] --> HC["Handler class"] --> HI["cached instance"]
+        end
+        MR & SPR --> HR
+        subgraph HL["Handlers"]
+            direction LR
+            IH["Image"] --- VH["Video"] --- PH["PDF"] --- AH["Archive"] --- TH["Text"]
+        end
+        HR --> HL
+        RULES["Sanitization Rules<br/>exif_rules | pdf_rules | video_rules"]
+        HL --> RULES
+    end
+    SRES["SanitizationResult<br/>(audit trail)"]
+    CFILE["Cleaned File (on disk)"]
+    MS --> SRES & CFILE

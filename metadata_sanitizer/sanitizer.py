@@ -6,7 +6,6 @@ manages sanitization modes (threat-score-driven or manual), and
 produces structured SanitizationResult reports.
 """
 
-import hashlib
 import logging
 import os
 import shutil
@@ -71,10 +70,15 @@ class MetadataSanitizer:
         }
 
     def _setup_logging(self) -> None:
-        logging.basicConfig(
-            level=getattr(logging, self.config.log_level, logging.INFO),
-            format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
-        )
+        """
+        Configure the package logger level only — do NOT call
+        logging.basicConfig, which is a global side effect that would
+        override host application logging configuration. The host
+        process is responsible for installing handlers.
+        """
+        package_logger = logging.getLogger("metadata_sanitizer")
+        level = getattr(logging, self.config.log_level, logging.INFO)
+        package_logger.setLevel(level)
 
     # ── Public API ─────────────────────────────────────────────────────
 
@@ -213,12 +217,16 @@ class MetadataSanitizer:
         # ── Verify output ─────────────────────────────────────────────
 
         if self.config.verify_after_sanitize and result.sanitized:
-            verify_path = output_path if output_path != file_path else file_path
             try:
-                result.file_valid_after_sanitization = handler.verify(verify_path)
+                result.file_valid_after_sanitization = handler.verify(output_path)
                 if not result.file_valid_after_sanitization:
                     result.warnings.append("file_invalid_after_sanitization")
-                    # Restore original if verification fails
+                    # Verification failed: the on-disk file is corrupted.
+                    # Mark the result as not-sanitized regardless of whether
+                    # rollback succeeds — callers and stats must not see this
+                    # as a successful sanitization.
+                    result.sanitized = False
+                    # Attempt rollback if a forensic copy exists
                     orig_path = file_path + self.config.original_suffix
                     if os.path.exists(orig_path):
                         shutil.copy2(orig_path, output_path)
@@ -230,8 +238,7 @@ class MetadataSanitizer:
 
         if self.config.compute_before_after_hash and result.sanitized:
             try:
-                after_path = output_path if output_path != file_path else file_path
-                after_meta = handler.extract_metadata(after_path)
+                after_meta = handler.extract_metadata(output_path)
                 result.metadata_after = handler.create_metadata_snapshot(after_meta)
             except Exception as e:
                 result.warnings.append(f"metadata_extraction_after_failed:{e}")

@@ -93,8 +93,14 @@ class DroneFleet:
             all_subs.extend(drone.get_submissions())
         return all_subs
 
-    def transmit_all(self, interceptor: Any) -> Dict[str, List[Any]]:
-        """Transmit all pending submissions from all drones to an interceptor."""
+    def transmit_all(self, interceptor: Optional[Any] = None) -> Dict[str, List[Any]]:
+        """
+        Transmit all pending submissions from all drones.
+
+        For drones in ``transport_mode="packet"`` the interceptor argument
+        is ignored. For drones in ``transport_mode="in_process"`` it must
+        be supplied (each drone calls ``interceptor.process(...)`` directly).
+        """
         results = {}
         for drone_id, drone in self._drones.items():
             results[drone_id] = drone.transmit_all(interceptor)

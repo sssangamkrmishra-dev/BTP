@@ -1,0 +1,24 @@
+{
+  "drone_id": "DRN-003",
+  "timestamp": "2026-04-09T17:35:03.375036+00:00",
+  "position": {
+    "lat": 12.97,
+    "lon": 77.605,
+    "alt": 50
+  },
+  "telemetry": {
+    "speed": 12.0,
+    "heading": 52.4,
+    "battery": 99.4,
+    "signal_strength": 79.9,
+    "vertical_speed": 0.0,
+    "temperature": 25.0,
+    "distance_from_home": 546.9
+  },
+  "status": "in_flight",
+  "uptime_sec": 46.0,
+  "total_distance_m": 546.9,
+  "payloads_captured": 0,
+  "firmware": "v2.3.0",
+  "warnings": []
+}

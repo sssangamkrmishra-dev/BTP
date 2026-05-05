@@ -1,0 +1,17 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '16px'}}}%%
+flowchart TB
+    P1{"Priority 1: mode_override provided?"}
+    P1 -->|"Yes"| USE1(["Use directly"])
+    P1 -->|"No"| P2{"Priority 2: threat_score available?"}
+
+    P2 -->|"T_S &ge; 0.7"| STRIP["<b>strip</b>"]:::strip
+    P2 -->|"T_S &le; 0.3"| AUDIT["<b>audit_only</b>"]:::audit
+    P2 -->|"0.3 &lt; T_S &lt; 0.7"| SEL["<b>selective</b>"]:::sel
+    P2 -->|"No T_S"| P3{"Priority 3: insecure_flags?"}
+
+    P3 -->|"executable / suspicious /<br/>double_extension"| STRIP2["<b>strip</b>"]:::strip
+    P3 -->|"No critical flags"| P4["Priority 4: config.default_mode<br/>&rarr; <b>selective</b>"]:::sel
+
+    classDef strip fill:#FFCDD2,stroke:#C62828
+    classDef audit fill:#C8E6C9,stroke:#2E7D32
+    classDef sel fill:#FFF9C4,stroke:#F9A825

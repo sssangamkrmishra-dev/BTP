@@ -1,0 +1,14 @@
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {3.1}{\ignorespaces High-level architecture of the multi-layered malware detection pipeline.}}{9}{figure.caption.7}%
+\contentsline {figure}{\numberline {3.2}{\ignorespaces End-to-end data flow through the system.}}{11}{figure.caption.8}%
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {4.1}{\ignorespaces Bayesian Belief Network used for cold-start reputation. Observed evidence ($Z$ and $F$) influences the unobserved attack status; conditional independence is assumed between $Z$ and $F$ given the attack status.}}{18}{figure.caption.24}%
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {5.1}{\ignorespaces Ingestion Interceptor's eight-stage pipeline.}}{29}{figure.caption.48}%
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {6.1}{\ignorespaces Sandbox Analyzer pipeline with short-circuits for safe and Windows files.}}{32}{figure.caption.50}%
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }

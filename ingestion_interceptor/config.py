@@ -58,3 +58,12 @@ class InterceptorConfig:
     uplink_enabled: bool = False
     uplink_endpoint: str = ""
     uplink_poll_interval_seconds: float = 10.0
+
+    # --- Packet listener (Stage 0: wire-level reception) ---
+    packet_listener_host: str = "0.0.0.0"
+    packet_listener_port: int = 5005
+    packet_max_session_chunks: int = 256       # bound memory per session
+    packet_max_concurrent_sessions: int = 100  # DoS bound per drone
+    packet_session_timeout_seconds: float = 30.0
+    packet_hmac_required: bool = True
+    packet_replay_window_seconds: float = 60.0

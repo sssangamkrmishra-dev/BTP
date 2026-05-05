@@ -1,0 +1,21 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '16px'}}}%%
+flowchart TB
+    subgraph ROW1[" "]
+        direction LR
+        L1["<b>Layer 1:</b> Ingestion Interceptor<br/><i>JSON validation, auth</i>"]
+        L2["<b>Layer 2:</b> Game-Theoretic Estimator<br/><i>Threat score</i>"]
+        L3["<b>Layer 3:</b> Malware Detection<br/><i>Sig + ML + Sandbox</i>"]
+        L1 --> L2 --> L3
+    end
+    subgraph ROW2[" "]
+        direction LR
+        L4["<b>Layer 4: METADATA SANITIZER</b><br/><i>Metadata cleaning, scripts</i>"]:::hl
+        L5["<b>Layer 5:</b> Threat Intel Correlator<br/><i>IoC matching</i>"]
+        L6["<b>Layer 6:</b> Response Manager<br/><i>Quarantine / forward</i>"]
+        L4 --> L5 --> L6
+    end
+    ROW1 --> ROW2
+
+    classDef hl fill:#FFF9C4,stroke:#F9A825,stroke-width:3px
+    style ROW1 fill:none,stroke:none
+    style ROW2 fill:none,stroke:none

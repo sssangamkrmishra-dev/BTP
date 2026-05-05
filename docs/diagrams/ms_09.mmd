@@ -1,0 +1,23 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '18px'}}}%%
+flowchart TB
+    TS(["T_S (Threat Score)"])
+
+    TS -->|"T_S &le; 0.3"| AO
+    TS -->|"0.3 &lt; T_S &lt; 0.7"| SEL
+    TS -->|"T_S &ge; 0.7"| STR
+
+    subgraph AO["AUDIT_ONLY"]
+        AO_D["Log only, no modifications<br/><br/><i>Low threat (routine patrol)</i>"]
+    end
+
+    subgraph SEL["SELECTIVE"]
+        SEL_D["Remove known-dangerous<br/>fields only<br/><br/><i>Medium threat (default)</i>"]
+    end
+
+    subgraph STR["STRIP"]
+        STR_D["Remove ALL non-essential<br/>metadata<br/><br/><i>High threat (suspicious device)</i>"]
+    end
+
+    style AO fill:#C8E6C9,stroke:#2E7D32
+    style SEL fill:#FFF9C4,stroke:#F9A825
+    style STR fill:#FFCDD2,stroke:#C62828

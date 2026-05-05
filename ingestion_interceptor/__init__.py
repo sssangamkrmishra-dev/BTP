@@ -33,6 +33,7 @@ from .models import (
     PayloadEntry,
 )
 from .authenticator import Authenticator, AuthResult, DeviceRegistry, SignatureVerifier
+from .packet_receiver import PacketReceiver, PacketReceiverStats, ReassemblyBuffer
 from .payload_analyzer import analyze_payload, compute_payload_risk_score
 from .validator import validate_submission
 
@@ -50,6 +51,9 @@ __all__ = [
     "AuthResult",
     "DeviceRegistry",
     "SignatureVerifier",
+    "PacketReceiver",
+    "PacketReceiverStats",
+    "ReassemblyBuffer",
     "analyze_payload",
     "compute_payload_risk_score",
     "validate_submission",

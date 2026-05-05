@@ -1,0 +1,28 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '16px'}}}%%
+flowchart LR
+    DRONE["<b>Drone / RPA</b><br/>payload + metadata"]:::ext
+    subgraph EDGE["EDGE MALWARE DETECTION ENGINE"]
+        direction LR
+        II["<b>Ingestion Interceptor</b><br/>auth + validate + extract"]
+        TE["<b>Threat Estimator</b><br/>Stackelberg + Bayes<br/>emits T_S and<br/>inspection.level"]:::thismod
+        subgraph DET["Multi-Layer Malware Detection"]
+            direction TB
+            SIG["Signature AV"]
+            ML["AI/ML Classifier"]
+            SBX["Sandbox Analyzer"]
+        end
+        MS["Metadata Sanitizer"]
+        RM["Response &amp;<br/>Quarantine Manager"]
+        DASH["Security Dashboard<br/>/ Feedback Loop"]
+    end
+    DRONE -->|"payload"| II
+    II -->|"IngestResult"| TE
+    TE -->|"T_S, inspection.route"| DET
+    DET --> MS --> RM --> DASH
+    RM -.->|"DetectionOutcome<br/>record_outcome()"| TE
+    DASH -.->|"FPR / FNR<br/>update_thresholds_from_feedback()"| TE
+
+    classDef thismod fill:#BBDEFB,stroke:#0D47A1,stroke-width:3px
+    classDef ext fill:#E8F5E9,stroke:#388E3C,stroke-width:2px
+    style EDGE fill:#FFF8E1,stroke:#F57F17,stroke-width:2px
+    style DET fill:#E3F2FD,stroke:#1565C0,stroke-width:2px

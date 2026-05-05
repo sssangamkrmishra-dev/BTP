@@ -1,0 +1,32 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '16px'}}}%%
+flowchart TB
+    DRONE["<b>Drone / RPA Platform</b>"]
+    GS["<b>Ground Station<br/>Adapter</b><br/><i>Parses native protocol<br/>(MAVLink, DJI MSDK, etc.)<br/>and builds submission dict</i>"]:::adapter
+
+    subgraph TB["TRUST BOUNDARY"]
+        direction TB
+        subgraph II["<b>INGESTION INTERCEPTOR</b>"]
+            direction TB
+            S0["<b>Stage 0:</b> Packet Receiver<br/>(HMAC verify, reassemble,<br/>decode binary TLV)"]:::stage0
+            S17["<b>Stages 1-7:</b> Validate &rarr; Authenticate &rarr;<br/>Extract metadata &rarr; Analyse &rarr;<br/>Checksum &rarr; Catalog &rarr; Assemble"]
+            S0 --> S17
+        end
+        GTE["<b>Game-Theoretic Threat Estimator</b><br/>Consumes ingest_metadata + artifact_records<br/>Produces T_S (0.0 - 1.0)"]
+        UR["<b>Uplink Receiver</b><br/>QUARANTINE, RELEASE, REVOKE_DEVICE,<br/>UPDATE_ZONE_RISK, UPDATE_CONFIG, FORCE_RESCAN"]
+        DASH["<b>Security Dashboard</b><br/>Visualization, audit logs,<br/>alerting, uplink dispatch"]
+        II -->|"IngestResult or error report"| GTE
+        DASH -->|"commands"| UR
+    end
+
+    GCC["<b>Ground Control<br/>Center</b>"]:::gcc
+
+    DRONE -->|"UDP packets<br/>(Stage 0 — custom RPAD)"| II
+    DRONE -->|"native protocol"| GS
+    GS -->|"dict via process()<br/>(primary path for<br/>real drones)"| II
+    DASH <-->|"packets<br/>(MQTT / gRPC over TLS)"| GCC
+
+    classDef stage0 fill:#FFF9C4,stroke:#F9A825,stroke-width:2px
+    classDef adapter fill:#E8F5E9,stroke:#388E3C,stroke-width:2px
+    classDef gcc fill:#E8F5E9,stroke:#388E3C,stroke-width:2px
+    style TB fill:#FFF8E1,stroke:#F57F17,stroke-width:2px
+    style II fill:#E3F2FD,stroke:#1565C0,stroke-width:2px

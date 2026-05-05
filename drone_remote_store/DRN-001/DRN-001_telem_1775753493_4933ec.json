@@ -1,0 +1,24 @@
+{
+  "drone_id": "DRN-001",
+  "timestamp": "2026-04-09T16:51:33.830437+00:00",
+  "position": {
+    "lat": 12.971598,
+    "lon": 77.594566,
+    "alt": 0.0
+  },
+  "telemetry": {
+    "speed": 0.0,
+    "heading": 0.0,
+    "battery": 100.0,
+    "signal_strength": 85.0,
+    "vertical_speed": 0.0,
+    "temperature": 25.0,
+    "distance_from_home": 0.0
+  },
+  "status": "idle",
+  "uptime_sec": 0.0,
+  "total_distance_m": 0.0,
+  "payloads_captured": 0,
+  "firmware": "v2.1.0",
+  "warnings": []
+}

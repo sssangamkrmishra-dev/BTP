@@ -1,0 +1,19 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '16px'}, 'sequence': {'mirrorActors': false}}}%%
+sequenceDiagram
+    participant CC as Control Center
+    participant UR as UplinkReceiver
+    participant UCH as CommandHandler
+    participant A as Authenticator
+    participant I as Interceptor
+
+    CC->>UR: push_command(REVOKE_DEVICE, "DRN-005")
+    Note over UR: command queued
+    Note over I,A: Later, during process() call
+    I->>UR: poll_commands()
+    UR-->>I: [UplinkCommand(...)]
+    I->>UCH: handle(command)
+    UCH->>A: revoke_device("DRN-005")
+    A-->>UCH: {trusted: False, revoked: True}
+    UCH-->>I: {"status": "revoked"}
+    I->>UR: acknowledge(cmd_id)
+    Note over UR: command marked processed

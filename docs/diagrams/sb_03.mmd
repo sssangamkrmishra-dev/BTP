@@ -1,0 +1,14 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '16px'}, 'sequence': {'mirrorActors': false}}}%%
+sequenceDiagram
+    autonumber
+    participant C as Caller
+    participant A as SandboxAnalyzer
+    participant R as Router
+    participant F as FeedbackSink
+
+    C->>A: analyze(file_path, drone_id)
+    A->>R: route_file()
+    R-->>A: SAFE · should_skip=True
+    A->>A: short-circuit — verdict = CLEAN
+    A->>F: notify_response_manager / notify_dashboard / queue_for_ml
+    A-->>C: SandboxReport

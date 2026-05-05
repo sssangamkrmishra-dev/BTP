@@ -1,0 +1,27 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '16px'}}}%%
+classDiagram
+    class BaseHandler {
+        <<abstract>>
+        +config: SanitizerConfig
+        +logger: Logger
+        +extract_metadata(file_path) Dict
+        +sanitize(file, output, mode) Changes[]
+        +verify(file_path) bool
+        +supported_mimes() Set
+        +is_available() bool
+        +handler_name() str
+        #create_metadata_snapshot(meta) Snapshot
+        #make_change(field, action) Change
+        #check_field_size_anomaly(field, val, th)
+    }
+    class ImageHandler { EXIF scrubbing via Pillow+piexif }
+    class VideoHandler { Atom cleaning via mutagen }
+    class PdfHandler { JS/action removal via pikepdf }
+    class ArchiveHandler { Structure inspection (stdlib) }
+    class TextHandler { Encoding normalization (stdlib) }
+
+    BaseHandler <|-- ImageHandler
+    BaseHandler <|-- VideoHandler
+    BaseHandler <|-- PdfHandler
+    BaseHandler <|-- ArchiveHandler
+    BaseHandler <|-- TextHandler

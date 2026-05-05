@@ -1,0 +1,27 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '16px'}, 'sequence': {'mirrorActors': false}}}%%
+sequenceDiagram
+    participant C as Client
+    participant MS as MetadataSanitizer
+    participant H as Handler
+    participant R as Rules
+    participant FS as FileSystem
+
+    C->>MS: sanitize_file(...)
+    MS->>MS: resolve_mode() (threat_score -> mode)
+    MS->>MS: pre-checks (file? size? MIME?)
+    MS->>H: get_handler()
+    H-->>MS: handler instance
+    MS->>H: extract_metadata()
+    H->>FS: read file
+    FS-->>H: file bytes
+    H-->>MS: before_snapshot
+    MS->>FS: copy -> .orig (preserve original)
+    MS->>H: sanitize()
+    H->>R: get_strip_set()
+    R-->>H: tag set
+    H->>FS: write cleaned file
+    H-->>MS: changes[]
+    MS->>H: verify()
+    H->>FS: re-parse file
+    H-->>MS: valid=true
+    MS-->>C: SanitizationResult

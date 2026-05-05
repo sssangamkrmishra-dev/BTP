@@ -1,0 +1,32 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '15px'}}}%%
+flowchart TB
+    UDP(["UDP packets"])
+    subgraph S0["Stage 0 (optional, when start_packet_listener is running)"]
+        direction LR
+        PR["PacketReceiver<br/>HMAC verify + reassemble"] --> DEC["decode_submission()"]
+    end
+
+    IN(["Raw dict"])
+    VS["validate_submission()"]
+    REJ1["REJECT<br/>(success=False)"]:::reject
+    DS["DroneSubmission.from_dict()"]
+    AA["Authenticator.authenticate()"]
+    REJ2["REJECT"]:::reject
+    EX["extract_mission_context()<br/>extract_geo_metadata()<br/>extract_telemetry_summary()<br/>extract_additional_metadata()"]
+    subgraph LOOP["FOR EACH payload"]
+        AP["analyze_payload()"] -->|"security_flags[]"| VC["verify_checksum()"]
+        VC -->|"checksum_verified"| CR["create_artifact_record()"]
+    end
+    BM["Build IngestMetadata<br/>(aggregate flags, zone risk, notes)"]
+    OUT(["IngestResult(success=True)"]):::success
+
+    UDP --> S0 --> IN
+    IN --> VS
+    VS -->|"errors?"| REJ1
+    VS -->|"OK"| DS --> AA
+    AA -->|"rejected?"| REJ2
+    AA -->|"OK"| EX --> LOOP --> BM --> OUT
+
+    classDef reject fill:#FFCDD2,stroke:#C62828
+    classDef success fill:#C8E6C9,stroke:#2E7D32
+    style S0 fill:#FFF9C4,stroke:#F9A825,stroke-width:2px

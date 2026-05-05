@@ -1,0 +1,9 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '16px'}, 'sequence': {'mirrorActors': false}}}%%
+sequenceDiagram
+    autonumber
+    participant C as Caller
+    participant E as Estimator
+
+    C->>E: estimate_from_ingest_result({"error": True, ...})
+    E->>E: check shape — error flag set
+    E-->>C: raise ValueError("cannot estimate on an errored IngestResult")

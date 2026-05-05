@@ -1,0 +1,14 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '16px'}}}%%
+flowchart LR
+    II["Ingestion<br/>Interceptor"] -->|"IngestMetadata +<br/>ArtifactRecord[]"| GTE["Game-Theoretic<br/>Estimator"]
+    GTE -->|"T_S"| MDE["Malware<br/>Detection"]
+    MDE -->|"passed files"| MSB
+
+    subgraph MSB["Metadata Sanitizer"]
+        direction TB
+        INP["<b>Inputs:</b> artifact_record, T_S, insecure_flags"]
+        OUTP["<b>Outputs:</b> SanitizationResult + cleaned file"]
+    end
+
+    MSB -->|"report"| TIC["Threat Intel<br/>Correlator"]
+    MSB -->|"cleaned file"| ON["Operational<br/>Network"]

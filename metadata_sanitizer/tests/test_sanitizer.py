@@ -68,12 +68,12 @@ class TestSanitizerConfig(unittest.TestCase):
         config = SanitizerConfig(
             default_mode="strip",
             preserve_gps=True,
-            max_metadata_size_bytes=2_000_000,
+            max_file_size_bytes=2_000_000,
             verify_after_sanitize=False,
         )
         self.assertEqual(config.default_mode, "strip")
         self.assertTrue(config.preserve_gps)
-        self.assertEqual(config.max_metadata_size_bytes, 2_000_000)
+        self.assertEqual(config.max_file_size_bytes, 2_000_000)
         self.assertFalse(config.verify_after_sanitize)
 
     def test_threat_score_thresholds(self):
@@ -754,6 +754,85 @@ class TestSanitizer(unittest.TestCase):
         # Should not raise
         json_str = json.dumps(d, default=str)
         self.assertIn("artifact://test", json_str)
+
+    # ── Verification rollback ─────────────────────────────────────────
+
+    def test_verification_failure_resets_sanitized_when_no_rollback(self):
+        """
+        When post-sanitization verify() returns False AND no .orig copy
+        exists (preserve_originals=False), the result must be reported as
+        NOT sanitized — otherwise the caller and stats would believe a
+        corrupted file was successfully cleaned.
+        """
+        config = SanitizerConfig(
+            preserve_originals=False,
+            verify_after_sanitize=True,
+            log_all_metadata=False,
+            log_level="WARNING",
+        )
+        sanitizer = MetadataSanitizer(config)
+        path = self._write_temp("dirty.txt", "hello\x00world\r\n")
+
+        # Force the text handler's verify() to return False to drive
+        # the rollback code path deterministically.
+        handler = sanitizer._get_handler(TextHandler)
+        original_verify = handler.verify
+        handler.verify = lambda _file_path: False
+        try:
+            result = sanitizer.sanitize_file(
+                artifact_id="artifact://test",
+                file_path=path,
+                mime_type="text/plain",
+            )
+        finally:
+            handler.verify = original_verify
+
+        self.assertFalse(result.sanitized)
+        self.assertFalse(result.file_valid_after_sanitization)
+        self.assertIn("file_invalid_after_sanitization", result.warnings)
+        # No rollback warning because no .orig was preserved
+        self.assertNotIn(
+            "original_restored_after_verification_failure", result.warnings
+        )
+        # Stats must NOT count this as a sanitized file
+        self.assertEqual(sanitizer.stats["total_sanitized"], 0)
+        self.assertEqual(sanitizer.stats["total_processed"], 1)
+
+    def test_verification_failure_rolls_back_when_orig_exists(self):
+        """
+        When preserve_originals=True and verification fails, the original
+        is restored from .orig and result.sanitized is set to False.
+        """
+        config = SanitizerConfig(
+            preserve_originals=True,
+            verify_after_sanitize=True,
+            log_all_metadata=False,
+            log_level="WARNING",
+        )
+        sanitizer = MetadataSanitizer(config)
+        original_text = "hello\x00world\r\n"
+        path = self._write_temp("dirty.txt", original_text)
+
+        handler = sanitizer._get_handler(TextHandler)
+        original_verify = handler.verify
+        handler.verify = lambda _file_path: False
+        try:
+            result = sanitizer.sanitize_file(
+                artifact_id="artifact://test",
+                file_path=path,
+                mime_type="text/plain",
+            )
+        finally:
+            handler.verify = original_verify
+
+        self.assertFalse(result.sanitized)
+        self.assertIn(
+            "original_restored_after_verification_failure", result.warnings
+        )
+        # The .orig file should still exist for forensics
+        self.assertTrue(os.path.exists(path + config.original_suffix))
+        # Stats unchanged
+        self.assertEqual(sanitizer.stats["total_sanitized"], 0)
 
 
 class TestHandlerAvailability(unittest.TestCase):

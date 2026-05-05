@@ -1,0 +1,34 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '15px'}}}%%
+flowchart TB
+    IN(["analyze(file_path, drone_id, …)"]):::in
+
+    S1["<b>Stage 1 — File Router</b><br/>magic bytes + extension fallback"]:::stage
+    SAFE(["SAFE → verdict CLEAN<br/>(short-circuit)"]):::clean
+    WIN(["WINDOWS PE → verdict SUSPICIOUS<br/>(analyst review, never executed)"]):::susp
+
+    S2["<b>Stage 2 — Archive Handler</b><br/>encrypted-no-key · double-ext · ZIP-bomb<br/>recursive extract (bounded)"]:::stage
+    S3["<b>Stage 3 — Isolated Execution</b><br/>setrlimit preexec_fn · empty env<br/>watchdog (wall_timeout)"]:::stage
+    S4["<b>Stage 4 — Four Monitors (200 ms poll)</b><br/>FileSystem · Network · Process · Privilege"]:::stage
+    S5["<b>Stage 5 — Risk Scoring</b><br/>Σ behavior_weights + archive delta + IOC bonus"]:::stage
+    S6["<b>Stage 6 — IOC Correlation</b><br/>ThreatIntelClient.query(hash, ips, domains)"]:::stage
+    S7["<b>Stage 7 — Verdict</b><br/>CLEAN &lt; 25 · SUSPICIOUS &lt; 60 · MALICIOUS ≥ 60"]:::stage
+    S8["<b>Stage 8 — FeedbackSink</b><br/>notify_response_manager · notify_dashboard · queue_for_ml"]:::stage
+
+    OUT(["SandboxReport"]):::out
+
+    IN --> S1
+    S1 -->|"SAFE"| SAFE
+    S1 -->|"WINDOWS"| WIN
+    S1 -->|"ARCHIVE"| S2
+    S1 -->|"SCRIPT / EXECUTABLE"| S3
+    S2 --> S3
+    S3 --> S4
+    S4 --> S5 --> S6 --> S7 --> S8 --> OUT
+    SAFE -.-> S8
+    WIN -.-> S8
+
+    classDef stage fill:#E3F2FD,stroke:#1565C0,stroke-width:2px
+    classDef clean fill:#C8E6C9,stroke:#2E7D32,stroke-width:2px
+    classDef susp fill:#FFE0B2,stroke:#E65100,stroke-width:2px
+    classDef in fill:#FFF9C4,stroke:#F9A825,stroke-width:2px
+    classDef out fill:#BBDEFB,stroke:#0D47A1,stroke-width:3px

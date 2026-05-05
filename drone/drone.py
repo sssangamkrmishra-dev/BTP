@@ -228,15 +228,25 @@ class Drone:
         self._pending_submissions.clear()
         return subs
 
-    def transmit_all(self, interceptor: Any) -> List[Any]:
+    def transmit_all(self, interceptor: Optional[Any] = None) -> List[Any]:
         """
-        Transmit all pending submissions to an IngestionInterceptor.
+        Transmit all pending submissions.
+
+        In ``transport_mode="in_process"`` this calls
+        ``interceptor.process(submission)`` for each pending submission and
+        returns the list of IngestResult objects.
+
+        In ``transport_mode="packet"`` this fragments each submission and
+        sends UDP packets via the configured DronePacketTransmitter. The
+        ``interceptor`` argument is ignored and the returned list contains
+        ``None`` per submission (packet mode is fire-and-forget).
 
         Args:
-            interceptor: An IngestionInterceptor instance.
+            interceptor: An IngestionInterceptor instance (required for
+                in_process mode, ignored for packet mode).
 
         Returns:
-            List of IngestResult objects.
+            List of IngestResult objects (in_process) or list of Nones (packet).
         """
         results = []
         for sub in self._pending_submissions:

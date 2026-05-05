@@ -21,6 +21,7 @@ from .metadata_extractor import (
     extract_telemetry_summary,
 )
 from .models import ArtifactRecord, DroneSubmission, IngestMetadata, IngestResult, PayloadEntry
+from .packet_receiver import PacketReceiver, PacketReceiverStats
 from .payload_analyzer import analyze_payload, compute_payload_risk_score, generate_threat_notes
 from .uplink import UplinkCommandHandler, UplinkReceiver
 from .validator import validate_submission
@@ -33,6 +34,11 @@ class IngestionInterceptor:
     Core ingestion interceptor for drone/RPA data streams.
 
     Pipeline stages:
+    0. (Optional) Receive UDP packets, verify per-packet HMAC, reassemble
+       fragmented submissions, and decode the binary TLV payload back into
+       a dict. Started via start_packet_listener(); reassembled submissions
+       are forwarded automatically into process(). When this stage is not
+       enabled, callers feed dicts to process() directly.
     1. Validate submission structure
     2. Authenticate source device
     3. Extract and normalize metadata
@@ -53,6 +59,8 @@ class IngestionInterceptor:
     ):
         self.config = config or InterceptorConfig()
         self._setup_logging()
+        # NOTE: _setup_logging is intentionally a no-op now (see method).
+        # The package logger level can be configured by the host process.
 
         # Authentication
         registry = DeviceRegistry(registry=device_registry)
@@ -73,6 +81,10 @@ class IngestionInterceptor:
             zone_risk_lookup=self._zone_risk,
         )
 
+        # Packet listener (Stage 0 — optional, started via start_packet_listener)
+        self._key_store: Dict[str, str] = dict(key_store) if key_store else {}
+        self._packet_receiver: Optional[PacketReceiver] = None
+
         # Statistics
         self._stats = {
             "total_processed": 0,
@@ -81,10 +93,15 @@ class IngestionInterceptor:
         }
 
     def _setup_logging(self) -> None:
-        logging.basicConfig(
-            level=getattr(logging, self.config.log_level, logging.INFO),
-            format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
-        )
+        """
+        Configure the package logger level only — do NOT call
+        logging.basicConfig, which is a global side effect that would
+        override host application logging configuration. The host
+        process is responsible for installing handlers.
+        """
+        package_logger = logging.getLogger("ingestion_interceptor")
+        level = getattr(logging, self.config.log_level, logging.INFO)
+        package_logger.setLevel(level)
 
     def process(self, drone_json: Dict[str, Any]) -> IngestResult:
         """
@@ -141,6 +158,12 @@ class IngestionInterceptor:
         # --- Stage 4 & 5: Analyze payloads + verify checksums ---
         artifact_records: List[ArtifactRecord] = []
         all_flags: set = set()
+
+        # Promote telemetry anomalies (negative speed, invalid battery, etc.)
+        # into the security-flag set so FR-19 actually surfaces in output.
+        if telemetry_summary:
+            for anomaly in telemetry_summary.get("telemetry_anomalies", []):
+                all_flags.add(f"telemetry_{anomaly}")
 
         for payload in submission.payloads:
             # Analyze for security flags
@@ -244,6 +267,69 @@ class IngestionInterceptor:
     @property
     def uplink_receiver(self) -> UplinkReceiver:
         return self._uplink_receiver
+
+    @property
+    def packet_receiver(self) -> Optional[PacketReceiver]:
+        return self._packet_receiver
+
+    @property
+    def packet_stats(self) -> Optional[PacketReceiverStats]:
+        if self._packet_receiver is None:
+            return None
+        return self._packet_receiver.stats
+
+    # ── Packet listener (Stage 0) ──────────────────────────────────────
+
+    def start_packet_listener(
+        self,
+        host: Optional[str] = None,
+        port: Optional[int] = None,
+    ) -> None:
+        """
+        Start the UDP packet receiver in a daemon thread.
+
+        Reassembled submissions are automatically fed into self.process(),
+        so existing pipeline behaviour is unchanged — this just adds a new
+        wire-level entry point.
+
+        Args:
+            host: Bind host (default from config.packet_listener_host).
+            port: Bind port (default from config.packet_listener_port).
+                  Pass 0 to ask the OS for an ephemeral port; the actual
+                  port can be read from packet_receiver.bound_address.
+        """
+        if self._packet_receiver is not None:
+            logger.warning("packet listener already started")
+            return
+
+        self._packet_receiver = PacketReceiver(
+            host=host if host is not None else self.config.packet_listener_host,
+            port=port if port is not None else self.config.packet_listener_port,
+            key_store=self._key_store,
+            on_submission=self._on_packet_submission,
+            max_session_chunks=self.config.packet_max_session_chunks,
+            max_concurrent_sessions=self.config.packet_max_concurrent_sessions,
+            session_timeout_seconds=self.config.packet_session_timeout_seconds,
+            require_hmac=self.config.packet_hmac_required,
+        )
+        self._packet_receiver.start()
+
+    def stop_packet_listener(self) -> None:
+        """Stop the packet receiver thread and close its socket."""
+        if self._packet_receiver is None:
+            return
+        self._packet_receiver.stop()
+        self._packet_receiver = None
+
+    def _on_packet_submission(self, drone_json: Dict[str, Any]) -> None:
+        """
+        Callback invoked by the packet receiver when a session has been
+        reassembled and decoded. Just forwards into the existing pipeline.
+        """
+        try:
+            self.process(drone_json)
+        except Exception as e:  # pragma: no cover - safety net
+            logger.exception("process() raised on packet submission: %s", e)
 
 
 def ingestion_interceptor(

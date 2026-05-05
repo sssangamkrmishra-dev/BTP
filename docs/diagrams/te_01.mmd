@@ -1,0 +1,27 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '16px'}}}%%
+flowchart TB
+    TE["<b>GameTheoreticThreatEstimator</b><br/>(estimator.py)"]:::main
+
+    BAY["<b>BayesianReputationEstimator</b><br/>(bayesian.py)<br/><i>cold-start prior P(N|Z,F)</i>"]
+    SK["<b>Stackelberg helpers</b><br/>(stackelberg.py)<br/><i>I', DSR', payoffs, solver,<br/>T_S mapping</i>"]
+    ADA["<b>AdaptiveThresholdManager</b><br/>(adaptive.py)<br/><i>soft FPR/FNR update</i>"]
+    RS["<b>InMemoryReputationStore</b><br/>(reputation_store.py)<br/><i>swap for Redis/Postgres</i>"]
+    FB["<b>FeedbackLoop</b><br/>(feedback.py)<br/><i>rolling FPR/FNR window</i>"]
+
+    CFG["EstimatorConfig<br/>(config.py)"]:::cfg
+    MOD["models.py<br/><i>ThreatEstimate, BayesianTrace,<br/>EquilibriumResult, …</i>"]:::mod
+
+    TE --> BAY
+    TE --> SK
+    TE --> ADA
+    TE --> RS
+    TE --> FB
+
+    CFG -.->|"tunables"| TE
+    CFG -.->|"tunables"| ADA
+    CFG -.->|"prior_benign"| BAY
+    MOD -.->|"typed payloads"| TE
+
+    classDef main fill:#BBDEFB,stroke:#0D47A1,stroke-width:3px
+    classDef cfg fill:#FFF9C4,stroke:#F9A825,stroke-width:2px
+    classDef mod fill:#E8F5E9,stroke:#388E3C,stroke-width:2px

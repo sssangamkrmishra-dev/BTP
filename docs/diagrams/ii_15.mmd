@@ -1,0 +1,29 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '15px'}}}%%
+flowchart LR
+    subgraph SUB["<b>Submission Envelope (10 B)</b>"]
+        direction TB
+        E["magic 4B 'DSUB'<br/>version 1B 0x01<br/>reserved 3B<br/>field_count 2B uint16"]
+    end
+
+    subgraph FLD["<b>TLV Record</b>"]
+        direction TB
+        F["tag 1B | length 2B | value NB<br/><i>(repeated field_count times)</i>"]
+    end
+
+    subgraph TLT["<b>Top-level Tags</b>"]
+        direction TB
+        TL["0x01 drone_id &mdash; utf-8<br/>0x02 timestamp &mdash; utf-8<br/>0x03 mission_id &mdash; utf-8 (opt)<br/>0x04 mission_zone &mdash; utf-8 (opt)<br/>0x05 geo &mdash; 24B (3 x float64)<br/>0x06 telemetry &mdash; 40B fixed<br/>0x07 signature &mdash; utf-8 (opt)<br/>0x08 firmware_version &mdash; utf-8 (opt)<br/>0x09 operator_id &mdash; utf-8 (opt)<br/>0x0A additional_metadata &mdash; TLV kv<br/>0x0B payload &mdash; TLV substream"]
+    end
+
+    subgraph PLT["<b>Payload Substream Tags</b>"]
+        direction TB
+        PL["0x01 type &mdash; 1B enum<br/>0x02 filename &mdash; utf-8<br/>0x03 mime &mdash; utf-8<br/>0x04 size_bytes &mdash; 8B uint64<br/>0x05 encryption &mdash; 1B bool<br/>0x06 container &mdash; 1B bool<br/>0x07 checksum &mdash; utf-8 (opt)<br/>0x08 uri &mdash; utf-8 (opt)"]
+    end
+
+    SUB --> FLD --> TLT
+    TLT -.->|"0x0B references"| PLT
+
+    style SUB fill:#E3F2FD,stroke:#1565C0,stroke-width:2px
+    style FLD fill:#FFF9C4,stroke:#F9A825,stroke-width:2px
+    style TLT fill:#E8F5E9,stroke:#388E3C,stroke-width:2px
+    style PLT fill:#F3E5F5,stroke:#7B1FA2,stroke-width:2px

@@ -1,0 +1,26 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '15px'}, 'sequence': {'mirrorActors': false}}}%%
+sequenceDiagram
+    autonumber
+    participant C as Caller
+    participant E as Estimator
+    participant RS as RepStore
+    participant B as Bayesian
+    participant S as Stackelberg
+    participant A as AdaptiveThresholds
+
+    C->>E: estimate(ingest_metadata, artifacts)
+    E->>RS: get(drone_id)
+    RS-->>E: None (cold start)
+    E->>B: compute_initial_reputation(Z, F)
+    B-->>E: BayesianTrace (R)
+    E->>E: compute I_base + flag bumps
+    E->>S: compute_I_prime(I_base, R, Z)
+    E->>S: compute_DSR_primes(DSR_base, H, TI)
+    E->>S: build_payoff_matrices
+    E->>S: solve_stackelberg_pure
+    S-->>E: EquilibriumResult
+    E->>S: compute_threat_score
+    S-->>E: T_S
+    E->>A: classify(T_S)
+    A-->>E: InspectionDecision (level + route)
+    E-->>C: ThreatEstimate

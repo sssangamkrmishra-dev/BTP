@@ -1,0 +1,29 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '15px'}, 'sequence': {'mirrorActors': false}}}%%
+sequenceDiagram
+    autonumber
+    participant H as Host
+    participant E as Estimator
+    participant RS as RepStore
+    participant FB as FeedbackLoop
+    participant A as AdaptiveThresholds
+
+    rect rgb(240,248,255)
+    Note over H,A: Detection outcome feedback
+    H->>E: record_outcome(outcome)
+    E->>RS: get(drone_id)
+    RS-->>E: existing / None
+    E->>E: update_reputation(current, verdict)
+    E->>RS: put(new ReputationProfile)
+    E->>FB: observe(outcome, inspection_level)
+    E-->>H: ReputationProfile
+    end
+
+    rect rgb(255,248,240)
+    Note over H,A: Periodic threshold refresh
+    H->>E: update_thresholds_from_feedback()
+    E->>FB: compute_metrics()
+    FB-->>E: FeedbackMetrics (FPR, FNR)
+    E->>A: update(fpr, fnr)
+    A-->>E: (th_low, th_high)
+    E-->>H: (th_low, th_high)
+    end

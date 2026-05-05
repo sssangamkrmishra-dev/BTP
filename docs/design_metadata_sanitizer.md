@@ -89,70 +89,92 @@ The Metadata Sanitizer occupies a specific position in the multi-layered detecti
 ┌──────────────────────────────────────────────────────────────────┐
 │                    DRONE / RPA PLATFORM                          │
 │             (Video, Images, Telemetry, Documents)                │
-└─────────────────────────────┬────────────────────────────────────┘
-                              │
-                              ▼
-┌──────────────────────────────────────────────────────────────────┐
-│                   INGESTION INTERCEPTOR                          │
-│                                                                  │
-│   Validate → Authenticate → Extract Metadata → Analyze          │
-│   → Verify Checksums → Create Artifacts                         │
-│                                                                  │
-│   Output: IngestResult {ingest_metadata, artifact_records[]}     │
-└─────────────────────────────┬────────────────────────────────────┘
-                              │ artifact_records + ingest_metadata
-                              ▼
-┌──────────────────────────────────────────────────────────────────┐
-│              GAME-THEORETIC THREAT ESTIMATOR                     │
-│                                                                  │
-│   Computes T_S (threat score 0.0-1.0) using Stackelberg         │
-│   equilibrium from: impact, reputation, zone risk, flags         │
-│                                                                  │
-│   Output: T_S + inspection_level (Low/Medium/High)               │
-└─────────────────────────────┬────────────────────────────────────┘
-                              │ T_S, inspection_level
-                              ▼
-┌──────────────────────────────────────────────────────────────────┐
-│             MULTI-LAYER MALWARE DETECTION ENGINE                 │
-│                                                                  │
-│   Signature scan → ML classifier → Sandbox (if High)             │
-│   Quarantines truly malicious files                              │
-└─────────────────────────────┬────────────────────────────────────┘
-                              │ files that passed detection
-                              ▼
-┌──────────────────────────────────────────────────────────────────┐
-│    ┌─────────────────────────────────────────────────────────┐   │
-│    │              METADATA SANITIZER                         │   │
-│    │                                                         │   │  ◄── THIS MODULE
-│    │   ┌──────────┐ ┌──────────┐ ┌──────────┐              │   │
-│    │   │  Image   │ │  Video   │ │   PDF    │              │   │
-│    │   │ Handler  │ │ Handler  │ │ Handler  │              │   │
-│    │   └──────────┘ └──────────┘ └──────────┘              │   │
-│    │   ┌──────────┐ ┌──────────┐                            │   │
-│    │   │ Archive  │ │  Text    │                            │   │
-│    │   │ Handler  │ │ Handler  │                            │   │
-│    │   └──────────┘ └──────────┘                            │   │
-│    │                                                         │   │
-│    │   Input:  artifact_records + T_S + file bytes           │   │
-│    │   Output: SanitizationResult per artifact               │   │
-│    └─────────────────────────────────────────────────────────┘   │
-└─────────────────────────────┬────────────────────────────────────┘
-                              │ sanitization reports + cleaned files
-                              ▼
-┌──────────────────────────────────────────────────────────────────┐
-│           THREAT INTELLIGENCE CORRELATOR                         │
-│                                                                  │
-│   Correlates sanitization findings with known IoC patterns       │
-│   Extracted metadata patterns serve as indicators of compromise  │
-└─────────────────────────────┬────────────────────────────────────┘
-                              │
-                              ▼
-┌──────────────────────────────────────────────────────────────────┐
-│           RESPONSE & QUARANTINE MANAGER                          │
-│                                                                  │
-│   Files that fail sanitization verification → quarantine         │
-│   Cleaned files → forward to operational network                 │
-└──────────────────────────────────────────────────────────────────┘
+└──────────────────────┬───────────────────────────────────────────┘
+                       │  Native protocol / Stage 0 UDP
+                       ▼
+┌══════════════════════════════════════════════════════════════════════┐
+║                       EDGE DEPLOYMENT NODE                          ║
+║  (All modules below run in-process on the edge node)                ║
+║                                                                     ║
+║  ┌──────────────────────────────────────────────────────────────┐   ║
+║  │                   INGESTION INTERCEPTOR                      │   ║
+║  │                                                              │   ║
+║  │   Validate → Authenticate → Extract Metadata → Analyze      │   ║
+║  │   → Verify Checksums → Create Artifacts                     │   ║
+║  │                                                              │   ║
+║  │   Output: IngestResult {ingest_metadata, artifact_records[]} │   ║
+║  └─────────────────────────────┬────────────────────────────────┘   ║
+║                                │ artifact_records + ingest_metadata  ║
+║                                ▼                                     ║
+║  ┌──────────────────────────────────────────────────────────────┐   ║
+║  │              GAME-THEORETIC THREAT ESTIMATOR                 │   ║
+║  │                                                              │   ║
+║  │   Computes T_S (threat score 0.0-1.0) using Stackelberg     │   ║
+║  │   equilibrium from: impact, reputation, zone risk, flags     │   ║
+║  │                                                              │   ║
+║  │   Output: T_S + inspection_level (Low/Medium/High)           │   ║
+║  └─────────────────────────────┬────────────────────────────────┘   ║
+║                                │ T_S, inspection_level               ║
+║                                ▼                                     ║
+║  ┌──────────────────────────────────────────────────────────────┐   ║
+║  │             MULTI-LAYER MALWARE DETECTION ENGINE             │   ║
+║  │                                                              │   ║
+║  │   Signature scan → ML classifier → Sandbox (if High)         │   ║
+║  │   Quarantines truly malicious files                          │   ║
+║  └─────────────────────────────┬────────────────────────────────┘   ║
+║                                │ files that passed detection         ║
+║                                ▼                                     ║
+║  ┌──────────────────────────────────────────────────────────────┐   ║
+║  │  ┌───────────────────────────────────────────────────────┐   │   ║
+║  │  │              METADATA SANITIZER                       │   │   ║
+║  │  │                                                       │   │◄──── THIS MODULE
+║  │  │   ┌──────────┐ ┌──────────┐ ┌──────────┐            │   │   ║
+║  │  │   │  Image   │ │  Video   │ │   PDF    │            │   │   ║
+║  │  │   │ Handler  │ │ Handler  │ │ Handler  │            │   │   ║
+║  │  │   └──────────┘ └──────────┘ └──────────┘            │   │   ║
+║  │  │   ┌──────────┐ ┌──────────┐                          │   │   ║
+║  │  │   │ Archive  │ │  Text    │                          │   │   ║
+║  │  │   │ Handler  │ │ Handler  │                          │   │   ║
+║  │  │   └──────────┘ └──────────┘                          │   │   ║
+║  │  │                                                       │   │   ║
+║  │  │   Input:  artifact_records + T_S + file bytes         │   │   ║
+║  │  │   Output: SanitizationResult per artifact             │   │   ║
+║  │  └───────────────────────────────────────────────────────┘   │   ║
+║  └─────────────────────────────┬────────────────────────────────┘   ║
+║                                │ sanitization reports + cleaned files ║
+║                                ▼                                     ║
+║  ┌──────────────────────────────────────────────────────────────┐   ║
+║  │           THREAT INTELLIGENCE CORRELATOR                     │   ║
+║  │                                                              │   ║
+║  │   Correlates sanitization findings with known IoC patterns   │   ║
+║  │   Extracted metadata patterns serve as indicators            │   ║
+║  └─────────────────────────────┬────────────────────────────────┘   ║
+║                                │                                     ║
+║                                ▼                                     ║
+║  ┌──────────────────────────────────────────────────────────────┐   ║
+║  │           RESPONSE & QUARANTINE MANAGER                      │   ║
+║  │                                                              │   ║
+║  │   Files that fail sanitization verification → quarantine     │   ║
+║  │   Cleaned files → forward to operational network             │   ║
+║  └───────────────────────────┬──────────────────────────────────┘   ║
+║                              │                                       ║
+╚══════════════════════════════╪═══════════════════════════════════════╝
+                               │
+                   Secure network link (MQTT / gRPC over TLS)
+                   Logs, alerts, sanitization reports, uplink commands
+                               │
+                               ▼
+              ┌────────────────────────────────────┐
+              │       GROUND CONTROL CENTER        │
+              │                                    │
+              │  ┌──────────────────────────────┐  │
+              │  │     SECURITY DASHBOARD       │  │
+              │  │                              │  │
+              │  │  Real-time visualization,    │  │
+              │  │  audit logs, alerting,       │  │
+              │  │  uplink command dispatch     │  │
+              │  └──────────────────────────────┘  │
+              └────────────────────────────────────┘
 ```
 
 ### 3.2 Why Separate from Ingestion Interceptor?
@@ -189,6 +211,16 @@ trust boundary that the Interceptor establishes:
 Stage 0 packet reception belongs to Module 1 (Ingestion Interceptor)
 only. Modules 2-9 in the BEL architecture are internal pipeline stages
 that pass Python objects and filesystem references in-process.
+
+> **Note --- Current vs Production file access:** Currently the sanitizer
+> reads and writes files directly on the local filesystem via
+> `pointer_storage` paths under `drone_remote_store/`. For production
+> deployments, the artifact storage layer will be **MinIO** (a self-hosted
+> S3-compatible object store on the edge node). The sanitizer will resolve
+> `pointer_storage` URIs via the S3 API, download the file to a temporary
+> working directory, sanitize it, upload the cleaned copy back, and
+> delete the temporary file. This change affects only the storage-pointer
+> resolution layer; the handler pipeline itself remains unchanged.
 
 ### 3.3 Data Flow Between Modules
 
@@ -407,6 +439,20 @@ Input: artifact_record + threat_score
 - **Handler caching:** One handler instance per class, reused across files
 - **Fail-safe:** If sanitization corrupts a file, the original is restored from the `.orig` copy and the result's `sanitized` flag is reset to `False` so stats and the caller-facing report reflect the rollback
 
+> **Note --- Production forensic-copy management:** Currently, `.orig`
+> copies are stored alongside the cleaned files on the local filesystem.
+> This effectively doubles disk usage per artifact. For production:
+> - **Storage:** Write `.orig` copies to a separate **forensic bucket** in
+>   MinIO (e.g., `s3://edge-forensics/originals/`) with write-once
+>   (WORM/Object Lock) policy so originals cannot be tampered with.
+> - **Retention:** Apply an automated lifecycle rule: retain `.orig` files
+>   for 90 days (configurable), then delete or tier to cold storage
+>   (S3 Glacier / tape). This bounds disk growth.
+> - **Cleanup:** A cron job or lifecycle policy should purge expired
+>   `.orig` files. The current implementation has no automatic cleanup.
+> - **Disk monitoring:** Alert when edge-node disk usage exceeds 80%.
+>   The `.orig` files are the primary contributor to disk growth.
+
 ### 5.2 Mode Resolver
 
 The sanitization mode is determined by a priority chain:
@@ -531,6 +577,21 @@ Normalizes encoding and detects embedded threats:
 - Detects embedded scripts (`<script>`, shebang, eval/exec, SQL injection patterns)
 - Validates JSON structure for telemetry files
 - In strip mode: removes lines matching script patterns
+
+> **Note --- Production handler isolation:** Currently all handlers run
+> in the same Python process as the orchestrator. A crafted malicious file
+> (e.g., a JPEG triggering a Pillow heap overflow, or a PDF exploiting a
+> pikepdf parser bug) could compromise the entire pipeline. For production:
+> - **Phase 3 plan:** Each handler invocation will run in a **restricted
+>   subprocess** (or seccomp-sandboxed container) with a per-file timeout,
+>   memory limit, and no network access.
+> - **Library pinning:** Pin Pillow, piexif, pikepdf, and mutagen to
+>   audited versions. Subscribe to their CVE feeds and apply security
+>   patches within 72 hours.
+> - **Async parallelism:** In production, sanitize multiple files in
+>   parallel using a process pool (e.g., `concurrent.futures.ProcessPoolExecutor`).
+>   The current sequential design is safe but under-utilizes multi-core
+>   edge hardware.
 
 ---
 
@@ -848,6 +909,18 @@ Client              MetadataSanitizer        Handler            Rules          F
 | `output_directory` | `str` | `""` | Separate output dir (empty = same as source) |
 | `log_all_metadata` | `bool` | `True` | Log extracted metadata before sanitization |
 | `log_level` | `str` | `"INFO"` | Logging level |
+
+**Production-recommended overrides:**
+
+| Parameter | Dev Default | Production Override | Reason |
+|---|---|---|---|
+| `preserve_originals` | `True` | `True` | Essential for forensic audit; store in separate WORM bucket |
+| `verify_after_sanitize` | `True` | `True` | Never weaken; catches parser-induced corruption |
+| `preserve_gps` | `False` | `False` | GPS data is a covert exfiltration vector; strip always |
+| `max_file_size_bytes` | `500,000,000` | Tune per deployment | Reduce if edge node has limited disk/RAM; increase for 4K video |
+| `output_directory` | `""` (in-place) | Dedicated cleaned dir | Separating clean/dirty files simplifies downstream consumption |
+| `log_level` | `"INFO"` | `"INFO"` or `"WARNING"` | Reduce volume under high throughput if log pipeline is bottleneck |
+| `compute_before_after_hash` | `True` | `True` | Essential for tamper-evidence chain; minor CPU cost is justified |
 | `skip_mime_types` | `Set[str]` | executables | MIME types to skip entirely |
 
 > **Reserved (Phase 3):** the following config knobs were stubbed in
@@ -911,6 +984,21 @@ Layer 6: Response & Quarantine Manager
 | **Graceful degradation** | Missing library → handler unavailable → skip with warning (not crash) |
 | **Fail-safe restoration** | If verification fails after sanitization → restore original from `.orig` copy AND reset `result.sanitized=False` so the rollback is reflected in stats and the caller-facing report |
 
+### 11.4 Production Security Hardening
+
+The following measures are not yet implemented but are recommended for
+production field deployment:
+
+| Area | Recommendation | Priority |
+|---|---|---|
+| **Handler sandboxing** | Run each handler invocation in a seccomp-restricted subprocess or namespaced container with no network access, a per-file timeout (30 s), and a memory limit (512 MB). A parser exploit in Pillow/pikepdf/mutagen must not escape the sandbox. | Critical |
+| **Library version pinning** | Pin Pillow, piexif, pikepdf, and mutagen to audited versions in a lock file. Subscribe to their CVE feeds (e.g., GitHub Dependabot, Snyk) and apply security patches within 72 hours. | Critical |
+| **Forensic copy integrity** | Store `.orig` files in a WORM (Write-Once-Read-Many) bucket on MinIO with Object Lock enabled. This prevents tampering with the forensic baseline even if the edge node is compromised. | High |
+| **Disk usage alerts** | Alert when edge-node disk usage exceeds 80%. The `.orig` copies are the primary contributor to disk growth. Automate a lifecycle policy: retain 90 days, then tier to cold storage or delete. | High |
+| **Idempotency marker** | Stamp cleaned files with an `X-Sanitized-By: v<version>` marker (EXIF UserComment for images, XMP metadata for PDFs). On re-entry, detect the marker and short-circuit to avoid redundant processing. | Medium |
+| **Audit log export** | Export per-file sanitization results (mode, changes, before/after hashes) as structured JSON to Grafana Loki or ELK for centralized forensic search and 90-day retention. | High |
+| **Processing timeout** | Enforce a hard 60 s wall-clock timeout per file. If a handler hangs (e.g., on a crafted PDF with deep nesting), kill the subprocess and flag the file as `sanitization_timeout`. | High |
+
 ---
 
 ## 12. Performance Requirements
@@ -936,7 +1024,24 @@ Layer 6: Response & Quarantine Manager
 
 ### 12.3 Throughput
 
-The sanitizer processes files sequentially within a single submission. For high-throughput deployments, multiple sanitizer instances can run in parallel across different submissions (stateless design).
+The sanitizer processes files sequentially within a single submission.
+For high-throughput deployments, multiple sanitizer instances can run in
+parallel across different submissions (stateless design).
+
+> **Note --- Production throughput:** The current sequential design is
+> correct for a single-threaded demo but under-utilizes multi-core edge
+> hardware. For production:
+> - **Intra-submission parallelism:** Use `concurrent.futures.ProcessPoolExecutor`
+>   to sanitize multiple payloads from the same submission in parallel.
+>   Each handler already operates on an independent file, so no shared
+>   state is involved.
+> - **Cross-submission parallelism:** Deploy the sanitizer behind a
+>   task queue (e.g., Celery with Redis broker or a simple
+>   `multiprocessing.Pool`) so that submissions from different drones
+>   are processed concurrently.
+> - **Backpressure:** If the sanitizer cannot keep up with the ingestion
+>   rate, apply backpressure to the upstream pipeline rather than dropping
+>   files silently.
 
 ---
 
@@ -1037,6 +1142,23 @@ Processes sample files from `drone_local_storage/` in three modes (audit, select
 └─────────────────────────────────────────────────────┘
 ```
 
+> **Note --- Current vs Production topology:** The diagram above shows the
+> current development setup where both modules share a local filesystem
+> directory. For production field deployment, the recommended topology is:
+>
+> | Layer | Technology | Purpose |
+> |---|---|---|
+> | Artifact storage | MinIO (edge S3) | Shared object store replacing `drone_remote_store/` |
+> | Forensic copies | Separate MinIO bucket with WORM policy | Tamper-proof `.orig` storage with 90-day lifecycle |
+> | Processing model | Same process (default) or Celery worker pool | Parallel file sanitization across CPU cores |
+> | Metrics export | Prometheus client (`/metrics` HTTP endpoint) | Sanitization rates, error counts, latency histograms |
+> | Log aggregation | Structured JSON → Grafana Loki | Centralized search over sanitization audit trails |
+> | Container | Docker/Podman with seccomp profile | Resource limits (CPU, memory), filesystem isolation |
+>
+> The sanitizer is stateless --- it reads a file, cleans it, writes it
+> back. This makes horizontal scaling trivial: add more worker processes
+> or containers as throughput demands increase.
+
 ### 15.2 Monitoring Checklist
 
 | Metric | Source | Alert Threshold |
@@ -1046,7 +1168,9 @@ Processes sample files from `drone_local_storage/` in three modes (audit, select
 | Critical findings | Changes with `severity="critical"` | Any occurrence |
 | Processing latency | `result.processing_time_ms` | > 1000 ms per file |
 | Handler unavailability | Results with `skip_reason="handler_unavailable"` | Persistent |
-| Disk usage (.orig files) | Filesystem monitoring | > 80% capacity |
+| Disk usage (.orig files) | Filesystem / MinIO bucket monitoring | > 80% capacity |
+| Handler timeout | `result.errors` containing `timeout` | Any occurrence (possible crafted file) |
+| Library CVE | Dependabot / Snyk alerts | Any new CVE in Pillow, pikepdf, mutagen |
 
 ### 15.3 Operational Procedures
 
@@ -1064,13 +1188,14 @@ Processes sample files from `drone_local_storage/` in three modes (audit, select
 
 | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|
-| **Parser vulnerability in Pillow/pikepdf** | Medium | High | Pin library versions, monitor CVEs, sandbox handlers |
-| **False positive: legitimate metadata stripped** | Medium | Medium | Audit-only mode for validation; preserve originals |
-| **Performance degradation on large batches** | Low | Medium | Bound per-file processing time; skip oversized files |
-| **Handler library not installed** | Medium | Low | Graceful degradation with warnings; stdlib handlers always work |
-| **Corrupted output after sanitization** | Low | High | Post-sanitization verification; auto-restore from .orig |
-| **Evolving exploit techniques bypass rules** | Medium | High | Rule sets are declarative and easily updated; stream scanning catches novel patterns |
-| **GPL license concern (mutagen)** | Low | Medium | mutagen is optional; video handler disabled without it |
+| **Parser vulnerability in Pillow/pikepdf** | Medium | High | Pin library versions, monitor CVEs via Dependabot/Snyk, patch within 72h; production: sandbox each handler in a seccomp-restricted subprocess |
+| **False positive: legitimate metadata stripped** | Medium | Medium | Audit-only mode for validation; preserve originals in WORM bucket; 90-day retention for forensic review |
+| **Performance degradation on large batches** | Low | Medium | Bound per-file timeout (30 s); skip oversized files; production: parallel processing with ProcessPoolExecutor or Celery workers |
+| **Handler library not installed** | Medium | Low | Graceful degradation with warnings; stdlib handlers always work; production: Docker image bakes all dependencies |
+| **Corrupted output after sanitization** | Low | High | Post-sanitization verification; auto-restore from .orig; production: WORM forensic bucket guarantees original is never lost |
+| **Evolving exploit techniques bypass rules** | Medium | High | Rule sets are declarative and easily updated; stream scanning catches novel patterns; subscribe to Pillow/pikepdf security advisories |
+| **GPL license concern (mutagen)** | Low | Medium | mutagen is optional; video handler disabled without it; procurement review required before production deployment |
+| **Forensic copy disk exhaustion** | Medium | Medium | Currently `.orig` copies have no automatic cleanup; production: MinIO lifecycle rule with 90-day retention + 80% disk alert |
 
 ---
 
@@ -1089,13 +1214,16 @@ Processes sample files from `drone_local_storage/` in three modes (audit, select
 | **Phase 2** | Forensic preservation (.orig files, before/after hashing) | Done |
 | **Phase 2** | Post-sanitization verification with auto-restore | Done |
 | **Phase 2** | Batch processing API | Done |
-| **Phase 3** | Sandboxed handler execution (subprocess isolation) | Planned |
-| **Phase 3** | Magic-bytes-based file type detection (python-magic) | Planned |
-| **Phase 3** | Integration with Threat Intelligence Correlator | Planned |
-| **Phase 3** | Async processing (asyncio) for high-throughput | Planned |
-| **Phase 3** | gRPC/REST API for microservice deployment | Planned |
-| **Phase 3** | Prometheus metrics export | Planned |
-| **Phase 3** | Custom rule engine (user-defined strip/keep rules) | Planned |
+| **Phase 3** | Seccomp-sandboxed handler execution (subprocess isolation, no network, memory limit) | Planned |
+| **Phase 3** | Magic-bytes-based file type detection (`python-magic`) to catch MIME spoofing | Planned |
+| **Phase 3** | Integration with Threat Intelligence Correlator (IoC extraction from stripped metadata) | Planned |
+| **Phase 3** | Parallel processing with `ProcessPoolExecutor` / Celery worker pool | Planned |
+| **Phase 3** | MinIO S3 storage-pointer resolution (replace local filesystem reads) | Planned |
+| **Phase 3** | WORM forensic bucket for `.orig` files with 90-day lifecycle policy | Planned |
+| **Phase 3** | Prometheus metrics exporter (`/metrics` endpoint) with Grafana dashboards | Planned |
+| **Phase 3** | Idempotency marker (`X-Sanitized-By`) to short-circuit re-sanitization | Planned |
+| **Phase 3** | Docker/Podman containerization with pinned dependency versions and seccomp profile | Planned |
+| **Phase 3** | Custom rule engine (user-defined strip/keep rules per deployment) | Planned |
 
 ---
 

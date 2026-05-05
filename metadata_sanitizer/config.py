@@ -32,12 +32,10 @@ class SanitizerConfig:
 
     # ── GPS / location handling ────────────────────────────────────────
     preserve_gps: bool = False            # keep GPS coordinates in image/video metadata
-    preserve_camera_serial: bool = False  # keep camera serial numbers
 
     # ── Size limits ────────────────────────────────────────────────────
-    max_metadata_size_bytes: int = 1_048_576   # 1 MB — flag fields exceeding this
     max_file_size_bytes: int = 500_000_000     # 500 MB — skip files larger than this
-    max_exif_field_bytes: int = 65_536         # 64 KB — individual EXIF field size cap
+    max_exif_field_bytes: int = 65_536         # 64 KB — individual EXIF/atom field size cap
 
     # ── Post-sanitization verification ─────────────────────────────────
     verify_after_sanitize: bool = True    # re-parse file after cleaning to confirm validity
@@ -54,11 +52,6 @@ class SanitizerConfig:
     # ── Logging ────────────────────────────────────────────────────────
     log_all_metadata: bool = True         # log extracted metadata before sanitization
     log_level: str = "INFO"
-    structured_logging: bool = True
-
-    # ── Sandbox ────────────────────────────────────────────────────────
-    sandboxed_execution: bool = False     # run handlers in restricted subprocess
-    sandbox_timeout_seconds: float = 30.0
 
     # ── Handler selection ──────────────────────────────────────────────
     # MIME types to skip entirely (already handled elsewhere or untrusted)
@@ -68,7 +61,11 @@ class SanitizerConfig:
         "application/x-dosexec",
     })
 
-    # ── Idempotency ───────────────────────────────────────────────────
-    skip_already_sanitized: bool = True   # skip files bearing a sanitization marker
-    sanitization_marker_key: str = "X-Sanitized-By"
-    sanitization_marker_value: str = "MetadataSanitizer/1.0"
+    # NOTE: subprocess sandboxing and idempotency-marker enforcement are
+    # listed in the Phase 3 roadmap (see design doc §17). The corresponding
+    # config knobs (sandboxed_execution, sandbox_timeout_seconds,
+    # skip_already_sanitized, sanitization_marker_*) will be reintroduced
+    # when those features are implemented. Likewise, preserve_camera_serial,
+    # max_metadata_size_bytes, and structured_logging were stubbed in
+    # earlier drafts but never wired up; they have been removed to keep
+    # the surface area honest.

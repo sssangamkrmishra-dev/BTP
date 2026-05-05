@@ -68,6 +68,13 @@ class DroneConfig:
     signing_key: str = ""               # HMAC shared secret
     signing_algorithm: str = "hmac-sha256"
 
+    # ── Wire transport (packet mode) ───────────────────────────────────
+    transport_mode: str = "in_process"  # "in_process" | "packet"
+    interceptor_host: str = "127.0.0.1"
+    interceptor_port: int = 5005
+    packet_chunk_size: int = 1024       # bytes per CHUNK packet payload
+    simulate_packet_loss: float = 0.0   # 0.0..1.0 — drop probability per packet
+
     # ── Anomaly injection (for testing) ────────────────────────────────
     inject_anomalies: bool = False
     anomaly_probability: float = 0.0    # 0.0 to 1.0

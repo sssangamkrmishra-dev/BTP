@@ -1,0 +1,27 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '15px'}, 'sequence': {'mirrorActors': false}}}%%
+sequenceDiagram
+    participant D as Drone Platform
+    participant PR as PacketReceiver
+
+    Note over D: SESSION_START dropped on the wire
+    D->>PR: CHUNK seq=k
+    Note over PR: unknown session_id then packets_dropped_orphaned plus one
+
+    Note over D: Tampered packet
+    D->>PR: Tampered CHUNK
+    Note over PR: HMAC verification failed then packets_dropped_hmac plus one
+
+    Note over D: Pcap replay
+    D->>PR: Replayed CHUNK seq=k
+    Note over PR: add_chunk returns False then packets_dropped_replay plus one
+
+    Note over D: Truncation attack or loss
+    D->>PR: CHUNKs 0..k-1 sent
+    Note over D: CHUNK k missing
+    D->>PR: SESSION_END
+    Note over PR: assemble() raises then sessions_truncated plus one and incomplete_packet_stream log
+
+    Note over D: Half-open session flooding
+    D->>PR: SESSION_START opens session
+    Note over D: no further packets for 30s
+    Note over PR: GC pass detects expiry then sessions_expired plus one

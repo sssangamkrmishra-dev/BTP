@@ -1,10 +1,10 @@
 {
   "A": {
     "ingest_metadata": {
-      "ingest_id": "ingest_217eb89364ff",
+      "ingest_id": "ingest_c3e97486ab42",
       "drone_id": "DRN-001",
       "timestamp": "2025-10-13T03:00:12Z",
-      "received_at": "2026-03-31T19:47:13.081898+00:00",
+      "received_at": "2026-04-09T17:47:33.946493+00:00",
       "mission_id": "MSN-142",
       "mission_zone": "zone-a",
       "geo": {
@@ -39,7 +39,7 @@
     },
     "artifact_records": [
       {
-        "artifact_id": "artifact://eac90744e67146d9",
+        "artifact_id": "artifact://78272d50e8ea479c",
         "filename": "drn001_fpv_001.mp4",
         "type": "video",
         "mime": "video/mp4",
@@ -48,11 +48,11 @@
         "container": false,
         "security_flags": [],
         "checksum_verified": null,
-        "thumbnail": "thumb://785fbd333efc",
-        "pointer_storage": "s3://forensics/artifacts/DRN-001//ba7a022e_drn001_fpv_001.mp4"
+        "thumbnail": "thumb://45f560761fe5",
+        "pointer_storage": "s3://forensics/artifacts/DRN-001//175ecd59_drn001_fpv_001.mp4"
       },
       {
-        "artifact_id": "artifact://9265b47644904ba9",
+        "artifact_id": "artifact://990af7a4a7904aa6",
         "filename": "drn001_cam_001.jpg",
         "type": "image",
         "mime": "image/jpeg",
@@ -61,18 +61,18 @@
         "container": false,
         "security_flags": [],
         "checksum_verified": null,
-        "thumbnail": "thumb://7b60f16c06d9",
-        "pointer_storage": "s3://forensics/artifacts/DRN-001//8227630f_drn001_cam_001.jpg"
+        "thumbnail": "thumb://e47ed77213df",
+        "pointer_storage": "s3://forensics/artifacts/DRN-001//118ae056_drn001_cam_001.jpg"
       }
     ],
     "warnings": []
   },
   "B": {
     "ingest_metadata": {
-      "ingest_id": "ingest_c27919518222",
+      "ingest_id": "ingest_73ff7cca365e",
       "drone_id": "DRN-002",
       "timestamp": "2025-10-13T03:05:45Z",
-      "received_at": "2026-03-31T19:47:13.082184+00:00",
+      "received_at": "2026-04-09T17:47:33.946800+00:00",
       "mission_id": "MSN-143",
       "mission_zone": "zone-c",
       "geo": {
@@ -113,7 +113,7 @@
     },
     "artifact_records": [
       {
-        "artifact_id": "artifact://d3fe560dc65d49ae",
+        "artifact_id": "artifact://e25564a92c194a6f",
         "filename": "payload_bundle.zip",
         "type": "archive",
         "mime": "application/zip",
@@ -126,10 +126,10 @@
         ],
         "checksum_verified": null,
         "thumbnail": null,
-        "pointer_storage": "s3://forensics/artifacts/DRN-002//6261f6a1_payload_bundle.zip"
+        "pointer_storage": "s3://forensics/artifacts/DRN-002//2b5497ea_payload_bundle.zip"
       },
       {
-        "artifact_id": "artifact://3e8ab82f0e38421a",
+        "artifact_id": "artifact://38aa8ecacc2a4770",
         "filename": "notes.txt",
         "type": "text",
         "mime": "text/plain",
@@ -139,17 +139,17 @@
         "security_flags": [],
         "checksum_verified": null,
         "thumbnail": null,
-        "pointer_storage": "s3://forensics/artifacts/DRN-002//43093eac_notes.txt"
+        "pointer_storage": "s3://forensics/artifacts/DRN-002//1a94f0e1_notes.txt"
       }
     ],
     "warnings": []
   },
   "C": {
     "ingest_metadata": {
-      "ingest_id": "ingest_a9e86e990a85",
+      "ingest_id": "ingest_f8195e508675",
       "drone_id": "DRN-003",
       "timestamp": "2025-10-13T03:10:03Z",
-      "received_at": "2026-03-31T19:47:13.082370+00:00",
+      "received_at": "2026-04-09T17:47:33.947087+00:00",
       "mission_id": "MSN-144",
       "mission_zone": "zone-b",
       "geo": {
@@ -184,7 +184,7 @@
     },
     "artifact_records": [
       {
-        "artifact_id": "artifact://efa9f878616d4155",
+        "artifact_id": "artifact://611a0890747049b4",
         "filename": "telemetry_snapshot.json",
         "type": "telemetry",
         "mime": "application/json",
@@ -194,17 +194,17 @@
         "security_flags": [],
         "checksum_verified": null,
         "thumbnail": null,
-        "pointer_storage": "s3://forensics/artifacts/DRN-003//596fc871_telemetry_snapshot.json"
+        "pointer_storage": "s3://forensics/artifacts/DRN-003//f4657e5e_telemetry_snapshot.json"
       }
     ],
     "warnings": []
   },
   "D": {
     "ingest_metadata": {
-      "ingest_id": "ingest_8808b5ab4ab6",
+      "ingest_id": "ingest_127447a68b4a",
       "drone_id": "DRN-004",
       "timestamp": "2025-10-13T03:15:22Z",
-      "received_at": "2026-03-31T19:47:13.082466+00:00",
+      "received_at": "2026-04-09T17:47:33.947232+00:00",
       "mission_id": "MSN-145",
       "mission_zone": "zone-a",
       "geo": {
@@ -244,7 +244,7 @@
     },
     "artifact_records": [
       {
-        "artifact_id": "artifact://09fabf639a444e3c",
+        "artifact_id": "artifact://d34d90616ed04e99",
         "filename": "survey_coverage_long.mp4",
         "type": "video",
         "mime": "video/mp4",
@@ -255,11 +255,11 @@
           "large_binary"
         ],
         "checksum_verified": null,
-        "thumbnail": "thumb://8ea124d5d5ad",
-        "pointer_storage": "s3://forensics/artifacts/DRN-004//cedf231e_survey_coverage_long.mp4"
+        "thumbnail": "thumb://8f4edebf32ff",
+        "pointer_storage": "s3://forensics/artifacts/DRN-004//3ae1972e_survey_coverage_long.mp4"
       },
       {
-        "artifact_id": "artifact://d43cf46f2ab2416f",
+        "artifact_id": "artifact://7cf2e3e5861e472c",
         "filename": "survey_frame_2345.jpg",
         "type": "image",
         "mime": "image/jpeg",
@@ -268,18 +268,18 @@
         "container": false,
         "security_flags": [],
         "checksum_verified": null,
-        "thumbnail": "thumb://8527a27dbb25",
-        "pointer_storage": "s3://forensics/artifacts/DRN-004//530d0c55_survey_frame_2345.jpg"
+        "thumbnail": "thumb://3224f38cf273",
+        "pointer_storage": "s3://forensics/artifacts/DRN-004//52f7cd8b_survey_frame_2345.jpg"
       }
     ],
     "warnings": []
   },
   "E_suspicious": {
     "ingest_metadata": {
-      "ingest_id": "ingest_84183ef373fb",
+      "ingest_id": "ingest_e672188284e1",
       "drone_id": "DRN-999",
       "timestamp": "2025-10-13T04:00:00Z",
-      "received_at": "2026-03-31T19:47:13.082620+00:00",
+      "received_at": "2026-04-09T17:47:33.947483+00:00",
       "mission_id": "MSN-666",
       "mission_zone": "zone-c",
       "geo": {
@@ -317,7 +317,7 @@
     },
     "artifact_records": [
       {
-        "artifact_id": "artifact://f9c5b5341c4747bf",
+        "artifact_id": "artifact://12b42139ab55461f",
         "filename": "data.tar.gz.exe",
         "type": "archive",
         "mime": "application/x-msdownload",
@@ -334,7 +334,7 @@
         ],
         "checksum_verified": null,
         "thumbnail": null,
-        "pointer_storage": "s3://forensics/artifacts/DRN-999//e455d45e_data.tar.gz.exe"
+        "pointer_storage": "s3://forensics/artifacts/DRN-999//1f676590_data.tar.gz.exe"
       }
     ],
     "warnings": [

@@ -1,0 +1,22 @@
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {3.1}{\ignorespaces Primary cross-module interfaces}}{12}{table.caption.9}%
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {4.1}{\ignorespaces Core roles and choices in the game-theoretic model}}{14}{table.caption.10}%
+\contentsline {table}{\numberline {4.2}{\ignorespaces GTE default configuration values}}{27}{table.caption.47}%
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {5.1}{\ignorespaces Fields of \texttt {IngestResult}}}{30}{table.caption.49}%
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {6.1}{\ignorespaces Sandbox pipeline stages}}{33}{table.caption.51}%
+\contentsline {table}{\numberline {6.2}{\ignorespaces The four monitors}}{33}{table.caption.52}%
+\contentsline {table}{\numberline {6.3}{\ignorespaces Default behaviour weights}}{34}{table.caption.53}%
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {7.1}{\ignorespaces Built-in file-type handlers and their cleanup actions}}{36}{table.caption.54}%
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {8.1}{\ignorespaces Cold-start Bayesian reputations}}{37}{table.caption.55}%
+\contentsline {table}{\numberline {8.2}{\ignorespaces Threat Score and inspection level}}{38}{table.caption.56}%
+\contentsline {table}{\numberline {8.3}{\ignorespaces Insecure flags extracted by the Ingestion Interceptor}}{38}{table.caption.57}%
+\contentsline {table}{\numberline {8.4}{\ignorespaces Sandbox Analyzer demo outcomes}}{39}{table.caption.58}%
+\contentsline {table}{\numberline {8.5}{\ignorespaces Metadata Sanitizer results}}{39}{table.caption.59}%
+\addvspace {10\p@ }

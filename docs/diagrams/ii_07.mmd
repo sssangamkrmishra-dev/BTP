@@ -1,0 +1,37 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '16px'}, 'sequence': {'mirrorActors': false, 'width': 200}}}%%
+sequenceDiagram
+    participant C as Caller
+    participant I as Interceptor
+    participant V as Validator
+    participant A as Authenticator
+    participant ME as MetadataExtractor
+    participant PA as PayloadAnalyzer
+    participant CV as ChecksumVerifier
+
+    C->>I: process(drone_json)
+    I->>I: _process_uplink()
+    I->>V: validate_submission()
+    V-->>I: (errors=[], warnings=[])
+    I->>I: DroneSubmission.from_dict()
+    I->>I: compute_bytes_checksum()
+    I->>A: authenticate(drone_id, signature, hash)
+    A-->>I: AuthResult(status="authenticated")
+    I->>ME: extract_mission_context()
+    ME-->>I: mission context
+    I->>ME: extract_geo_metadata()
+    ME-->>I: validated geo
+    I->>ME: extract_telemetry_summary()
+    ME-->>I: telemetry + anomalies
+    I->>ME: extract_additional_metadata()
+    ME-->>I: sanitized metadata
+    rect rgb(240,248,255)
+    loop FOR EACH payload
+        I->>PA: analyze_payload()
+        PA-->>I: security_flags[]
+        I->>CV: verify_checksum()
+        CV-->>I: True / False / None
+        I->>I: create_artifact_record()
+    end
+    end
+    I->>I: Build IngestMetadata
+    I-->>C: IngestResult(success=True)

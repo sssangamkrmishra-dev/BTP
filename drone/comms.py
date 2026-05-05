@@ -1,6 +1,16 @@
 """
 Communication layer: handles signing, formatting, and transmitting
 drone submissions to the ingestion interceptor.
+
+Two transports are supported, selected by config.transport_mode:
+
+  * "in_process" — call interceptor.process(submission) directly. Used
+    for unit tests and the original integration demo. Synchronous, returns
+    the IngestResult immediately.
+
+  * "packet" — fragment the submission into UDP packets and send them
+    over the wire to a PacketReceiver. Asynchronous, fire-and-forget,
+    matches how real drones push data to an edge node.
 """
 
 import hashlib
@@ -13,6 +23,7 @@ from typing import Any, Dict, List, Optional
 
 from .config import DroneConfig
 from .models import CapturedPayload, DroneState
+from .packet_transmitter import DronePacketTransmitter
 
 logger = logging.getLogger(__name__)
 
@@ -24,13 +35,29 @@ class DroneTransmitter:
     Responsibilities:
         - Format payloads into the DroneSubmission JSON schema
         - Sign submissions with HMAC-SHA256 (if signing enabled)
-        - Transmit submissions to the ingestion interceptor (direct call or queue)
+        - Transmit submissions to the ingestion interceptor (direct call,
+          UDP packets, or queue)
         - Log transmission events for audit
     """
 
     def __init__(self, config: DroneConfig):
         self.config = config
         self._transmission_log: List[Dict[str, Any]] = []
+        self._packet_tx: Optional[DronePacketTransmitter] = None
+        if config.transport_mode == "packet":
+            if not config.signing_key:
+                raise ValueError(
+                    "transport_mode='packet' requires signing_key to be set "
+                    "(used as the per-packet HMAC key)"
+                )
+            self._packet_tx = DronePacketTransmitter(
+                drone_id=config.drone_id,
+                host=config.interceptor_host,
+                port=config.interceptor_port,
+                hmac_key=config.signing_key,
+                chunk_size=config.packet_chunk_size,
+                simulate_packet_loss=config.simulate_packet_loss,
+            )
 
     def build_submission(
         self,
@@ -66,8 +93,16 @@ class DroneTransmitter:
             },
         }
 
-        # Sign if enabled
-        if self.config.signing_enabled and self.config.signing_key:
+        # Sign if enabled — but only in in_process mode. In packet mode the
+        # per-packet HMAC tag is the wire authentication, and the submission
+        # round-trips through a binary codec that coerces additional_metadata
+        # values to strings, which would invalidate any application-level
+        # signature on the receiving side.
+        if (
+            self.config.signing_enabled
+            and self.config.signing_key
+            and self.config.transport_mode != "packet"
+        ):
             submission["signature"] = self._sign_submission(submission)
 
         return submission
@@ -80,26 +115,49 @@ class DroneTransmitter:
         """
         Transmit a submission to the ingestion interceptor.
 
-        If an interceptor instance is provided, calls its process() method
-        directly (in-process integration). Otherwise, logs the submission
-        for later retrieval.
+        Behaviour depends on config.transport_mode:
+
+          * "in_process": calls interceptor.process(submission) directly
+            and returns the IngestResult. The interceptor argument is
+            required.
+
+          * "packet": fragments the submission into UDP packets and sends
+            them via the DronePacketTransmitter. Fire-and-forget — returns
+            None. The interceptor argument is ignored.
 
         Args:
             submission: The formatted drone submission dict.
-            interceptor: Optional IngestionInterceptor instance.
+            interceptor: IngestionInterceptor instance (required for in_process,
+                ignored for packet).
 
         Returns:
-            IngestResult if interceptor is provided, None otherwise.
+            IngestResult if in_process mode, None for packet mode.
         """
-        tx_record = {
+        tx_record: Dict[str, Any] = {
             "drone_id": submission.get("drone_id"),
             "timestamp": submission.get("timestamp"),
             "num_payloads": len(submission.get("payloads", [])),
             "transmitted_at": datetime.now(timezone.utc).isoformat(),
+            "transport": self.config.transport_mode,
         }
 
         result = None
-        if interceptor is not None:
+
+        if self.config.transport_mode == "packet":
+            assert self._packet_tx is not None
+            try:
+                num_pkts = self._packet_tx.send(submission)
+                tx_record["delivered"] = True
+                tx_record["packets_sent"] = num_pkts
+                logger.info(
+                    "Transmitted via packets: %s -> %d packets",
+                    submission.get("drone_id"), num_pkts,
+                )
+            except Exception as e:
+                tx_record["delivered"] = False
+                tx_record["error"] = str(e)
+                logger.error("Packet transmission failed: %s", e)
+        elif interceptor is not None:
             try:
                 result = interceptor.process(submission)
                 tx_record["delivered"] = True
@@ -124,6 +182,17 @@ class DroneTransmitter:
 
         self._transmission_log.append(tx_record)
         return result
+
+    @property
+    def packet_transmitter(self) -> Optional[DronePacketTransmitter]:
+        """Direct access to the underlying packet transmitter (if any)."""
+        return self._packet_tx
+
+    def close(self) -> None:
+        """Release the packet socket if one is held."""
+        if self._packet_tx is not None:
+            self._packet_tx.close()
+            self._packet_tx = None
 
     @property
     def transmission_log(self) -> List[Dict[str, Any]]:

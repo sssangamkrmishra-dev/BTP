@@ -1,0 +1,72 @@
+\contentsline {chapter}{Abstract}{1}{chapter*.1}%
+\contentsline {chapter}{Acknowledgements}{2}{chapter*.2}%
+\contentsline {chapter}{List of Figures}{iv}{chapter*.4}%
+\contentsline {chapter}{List of Tables}{v}{chapter*.5}%
+\contentsline {chapter}{Nomenclature}{vii}{chapter*.6}%
+\contentsline {chapter}{\numberline {1}Introduction}{1}{chapter.1}%
+\contentsline {section}{\numberline {1.1}Background and Motivation}{1}{section.1.1}%
+\contentsline {section}{\numberline {1.2}Problem Statement}{1}{section.1.2}%
+\contentsline {section}{\numberline {1.3}Objectives}{2}{section.1.3}%
+\contentsline {section}{\numberline {1.4}Project Contributions}{3}{section.1.4}%
+\contentsline {section}{\numberline {1.5}Scope of the Report}{3}{section.1.5}%
+\contentsline {section}{\numberline {1.6}Report Organisation}{4}{section.1.6}%
+\contentsline {chapter}{\numberline {2}Literature Review}{5}{chapter.2}%
+\contentsline {section}{\numberline {2.1}Traditional Malware Detection Approaches}{5}{section.2.1}%
+\contentsline {subsection}{\numberline {2.1.1}Signature-Based Detection}{5}{subsection.2.1.1}%
+\contentsline {subsection}{\numberline {2.1.2}Heuristic and Rule-Based Detection}{5}{subsection.2.1.2}%
+\contentsline {subsection}{\numberline {2.1.3}Machine Learning–Driven Detection}{6}{subsection.2.1.3}%
+\contentsline {section}{\numberline {2.2}Multi-Layer Malware Detection Engine}{6}{section.2.2}%
+\contentsline {section}{\numberline {2.3}Drone Data Security and Threat Models}{7}{section.2.3}%
+\contentsline {section}{\numberline {2.4}Game Theory in Cyber-Security}{7}{section.2.4}%
+\contentsline {chapter}{\numberline {3}System Architecture}{8}{chapter.3}%
+\contentsline {section}{\numberline {3.1}Architectural Overview}{8}{section.3.1}%
+\contentsline {section}{\numberline {3.2}Data Flow Pipeline}{10}{section.3.2}%
+\contentsline {section}{\numberline {3.3}Cross-Module Interfaces}{12}{section.3.3}%
+\contentsline {chapter}{\numberline {4}Game-Theoretic Threat Estimator}{13}{chapter.4}%
+\contentsline {section}{\numberline {4.1}Introduction}{13}{section.4.1}%
+\contentsline {section}{\numberline {4.2}Game Theoretic Threat Estimator Core}{13}{section.4.2}%
+\contentsline {section}{\numberline {4.3}Game Mathematics in Simple Terms}{14}{section.4.3}%
+\contentsline {section}{\numberline {4.4}Parameters That Influence the Game}{15}{section.4.4}%
+\contentsline {section}{\numberline {4.5}Outcome}{15}{section.4.5}%
+\contentsline {section}{\numberline {4.6}Variables, Inputs \& Assumptions}{16}{section.4.6}%
+\contentsline {section}{\numberline {4.7}Bayesian Cold-Start Reputation}{18}{section.4.7}%
+\contentsline {subsection}{\numberline {4.7.1}Motivation}{18}{subsection.4.7.1}%
+\contentsline {subsection}{\numberline {4.7.2}Bayesian Belief Network}{18}{subsection.4.7.2}%
+\contentsline {subsection}{\numberline {4.7.3}Posterior Formulation}{18}{subsection.4.7.3}%
+\contentsline {subsection}{\numberline {4.7.4}Worked Example}{19}{subsection.4.7.4}%
+\contentsline {section}{\numberline {4.8}Compute Adjusted Parameters ($I'$, DSR$'(s)$)}{19}{section.4.8}%
+\contentsline {subsection}{\numberline {4.8.1}Formula: Adjusted impact ($I'$)}{19}{subsection.4.8.1}%
+\contentsline {subsection}{\numberline {4.8.2}Formula: Adjusted detection success rate (DSR$'(s)$)}{20}{subsection.4.8.2}%
+\contentsline {section}{\numberline {4.9}Payoff Matrices and Utilities}{21}{section.4.9}%
+\contentsline {paragraph}{Defender payoff}{21}{section*.34}%
+\contentsline {paragraph}{Attacker payoff}{22}{section*.35}%
+\contentsline {paragraph}{Attacker Utility Matrix}{22}{table.caption.38}%
+\contentsline {paragraph}{Defender Utility Matrix}{22}{table.caption.40}%
+\contentsline {section}{\numberline {4.10}From Equilibrium Utilities to Threat Score and Inspection Level}{23}{section.4.10}%
+\contentsline {section}{\numberline {4.11}Reputation Dynamics}{25}{section.4.11}%
+\contentsline {section}{\numberline {4.12}Adaptive Threshold Manager}{25}{section.4.12}%
+\contentsline {section}{\numberline {4.13}Feedback Loop}{26}{section.4.13}%
+\contentsline {section}{\numberline {4.14}Configuration and Defaults}{26}{section.4.14}%
+\contentsline {section}{\numberline {4.15}Integration with the Malware Detection Pipeline}{27}{section.4.15}%
+\contentsline {chapter}{\numberline {5}Ingestion Interceptor}{28}{chapter.5}%
+\contentsline {section}{\numberline {5.1}Processing Pipeline}{28}{section.5.1}%
+\contentsline {section}{\numberline {5.2}Output}{30}{section.5.2}%
+\contentsline {chapter}{\numberline {6}Sandbox Analyzer}{31}{chapter.6}%
+\contentsline {section}{\numberline {6.1}Design Principles}{31}{section.6.1}%
+\contentsline {section}{\numberline {6.2}Eight-Stage Pipeline}{31}{section.6.2}%
+\contentsline {section}{\numberline {6.3}Monitoring}{33}{section.6.3}%
+\contentsline {section}{\numberline {6.4}Risk Scoring and Verdict}{34}{section.6.4}%
+\contentsline {chapter}{\numberline {7}Metadata Sanitizer}{35}{chapter.7}%
+\contentsline {section}{\numberline {7.1}Sanitization Modes}{35}{section.7.1}%
+\contentsline {section}{\numberline {7.2}File-Type Handlers}{35}{section.7.2}%
+\contentsline {section}{\numberline {7.3}Output}{36}{section.7.3}%
+\contentsline {chapter}{\numberline {8}Results and Analysis}{37}{chapter.8}%
+\contentsline {section}{\numberline {8.1}Threat Estimator Results}{37}{section.8.1}%
+\contentsline {section}{\numberline {8.2}Ingestion Interceptor Results}{38}{section.8.2}%
+\contentsline {section}{\numberline {8.3}Sandbox Analyzer Results}{38}{section.8.3}%
+\contentsline {section}{\numberline {8.4}Metadata Sanitizer Results}{39}{section.8.4}%
+\contentsline {chapter}{\numberline {9}Conclusion and Future Work}{40}{chapter.9}%
+\contentsline {section}{\numberline {9.1}Summary}{40}{section.9.1}%
+\contentsline {section}{\numberline {9.2}Limitations}{40}{section.9.2}%
+\contentsline {section}{\numberline {9.3}Future Work}{41}{section.9.3}%
+\contentsline {chapter}{References}{42}{section.9.3}%
